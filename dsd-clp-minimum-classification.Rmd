@@ -1,0 +1,53 @@
+---
+title: "CLP Minimum classifications"
+author: "Marco Dilger"
+date: "February 4, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl) # reads xlsx without outer dependencies
+```
+
+## Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification
+
+### Background
+Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (*this needs a figure for explanation*)). This \~\~may\~\~did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
+
+### Get data with CLP classifications
+ECHA provides (unofficial) tabular data of harmonized classifications [here](https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp) in form of an excel file. The substances falling under the minimum classification are marked with an '*'.
+
+Unfortunately it's only availabe as an excel file. The excel file contains text in the first 4 rows, the table headers in the next two rows, and the data starting with row 7. Parsing two rows as table headers is not suported by readxl::read_excel (don't know about xlsx::read.xlsx), but the [issue discussion](https://github.com/tidyverse/readxl/issues/486) on github provides a working solution. 
+
+```{r get data}
+
+headers <- read_excel("data/annex_vi_clp_table_atp10_en.xlsx", range = cell_rows(5:6), col_names = FALSE) %>%
+  map(na.omit) %>% 
+  map(paste, collapse = "_") %>% 
+  as.character
+
+clp_table <- read_excel("data/annex_vi_clp_table_atp10_en.xlsx", skip = 6, col_names = headers)
+# ToDo: look into option .name_repair
+
+glimpse(clp_table)
+```
+Many variables look messy. For the purpose of this analysis we only need the hazard class categories and some id of the substances. Dropping anything else and renaming the vars:
+
+```{r dropping uneccessary vars}
+clp_table <- clp_table %>%
+  transmute(
+    substance = `International Chemical Identification`,
+    ec = `EC No`,
+    clp_class = `Classification_Hazard Class and Category Code(s)`
+  )
+```
+
+
+As expected, multiple hazard categories are contained in 1 excel cell. This needs to be tidied up first.
+```{r tidying df}
+clp_table_tidy <- clp_table %>%
+  separate_rows(clp_class, sep = "\r\n") %>%
+  filter(str_length(clp_class) > 0)
+```
