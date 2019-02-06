@@ -52,6 +52,20 @@ clp_table_tidy <- clp_table %>%
   filter(str_length(clp_class) > 0)
 ```
 
-clp_table_tidy %>%
-  filter(str_detect(clp_class, "\\*$")) %>% # select all observations where the hazard class category ends with '*'
-  pull(clp_class)
+```{r extract minimum categorization}
+clp_minimum <- clp_table_tidy %>%
+  filter(str_detect(clp_class, "\\*$")) # select all observations where the hazard class category ends with '*'
+```
+2845 substances
+
+## For many of these substances does the data not support the classification?
+
+Sources of experimental data
+
+* ECHA dissemination database: For the substances which are registered, this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scrpaing the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?)  
+* eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but I don't know if that's only the 2017 database dump or also more recent data  
+* OECD Toolbox: 2017 reach db  
+* LRI Ambit2: 2017 REACH db??  
+* IUCLID API with db dump: slow and inconvenient  
+* EPA chemistry dashboard:?  
+* tbc  
