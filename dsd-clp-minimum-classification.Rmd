@@ -1,7 +1,7 @@
 ---
 title: "CLP Minimum classifications"
 author: "Marco Dilger"
-date: "February 4, 2019"
+date: "February 6, 2019"
 output: html_document
 ---
 
@@ -51,3 +51,7 @@ clp_table_tidy <- clp_table %>%
   separate_rows(clp_class, sep = "\r\n") %>%
   filter(str_length(clp_class) > 0)
 ```
+
+clp_table_tidy %>%
+  filter(str_detect(clp_class, "\\*$")) %>% # select all observations where the hazard class category ends with '*'
+  pull(clp_class)
