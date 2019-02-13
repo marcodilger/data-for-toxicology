@@ -40,6 +40,7 @@ clp_table <- clp_table %>%
   transmute(
     substance = `International Chemical Identification`,
     ec = `EC No`,
+    cas = `CAS No`,
     clp_class = `Classification_Hazard Class and Category Code(s)`
   )
 ```
@@ -58,14 +59,57 @@ clp_minimum <- clp_table_tidy %>%
 ```
 2845 substances
 
-## For many of these substances does the data not support the classification?
+## For how many of these substances does available data not support the classification?
 
-Sources of experimental data
+### Sources of experimental data
 
-* ECHA dissemination database: For the substances which are registered, this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scrpaing the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?)  
-* eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but I don't know if that's only the 2017 database dump or also more recent data  
-* OECD Toolbox: 2017 reach db  
-* LRI Ambit2: 2017 REACH db??  
-* IUCLID API with db dump: slow and inconvenient  
-* EPA chemistry dashboard:?  
-* tbc  
+* ECHA dissemination database: For the substances which are registered, this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scraping the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?) 
+* eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but apparently that's only the 2017 database dump [(details here)](https://echa.europa.eu/-/data-on-15-000-chemicals-now-available-to-use), which would mean more recent data can't be found. **ToDo later: check if data from a post-2017 registration is included in eChemPortal**  
+* OECD Toolbox: Contains the data from the 2017 REACH database dump. With considerable amount of details (e.g. test item information in natural language. **Need to check this**.  
+* LRI Ambit2: [link](http://cefic-lri.org/toolbox/ambit2/). Also contains the data from the 2017 REACH db. Has an API? and is developed by Ideaconsult (good sign for data accessibility). **Need to check this**.  
+* IUCLID API with db dump: IUCLID6 provides a REST API. However it is very slow and inconvenient: information is coded, codes are available in the iuclid-data dcumentation, but not readily in machine-readable format. Also study records not directly accessible/searchable, but only via the study record UUIDs which in turn have to be requested first with the dossier UUID etc... not a viable solution for quickly getting the acute tox data. *(further info/experience on IUCLID api wanted)*  
+* EPA chemistry dashboard: Has some acute tox data without much details and without references. Exports apparently only the presence of data, not the values itself?  
+* HSDB via PubChem or directly  
+* NIOSH-RTECS via PubChem or directly. Direct access to RTECS probably difficult
+* tbc: there must be more
+
+### Conclusion where to get data
+eChemportal or OECD Toolbox seems to be the best solution for now.
+
+## Use data from eChemPortal to get acute toxicity effect levels
+
+### Usage of the eChemPortal propertysearch
+
+eChemPortals property search [link](https://www.echemportal.org/echemportal/propertysearch/page.action?pageID=10) allows to search the REACH dissemination database (from 2017, as explained above). To get data one has to build query blocks (which have a different structure for the different endpoints) which specify the requested variables. For acute oral toxicity, the query offers the variables
+
+* Type of information (the type of study {experimental, QSAR, read-accross, ...} where the information came from)
+* Reliability (Klimisch Reliability scores)
+* Reference, Year (Year of the study)
+* Testguideline qualifier and guideline
+* GLP compliance (not necessary for the current purpose)
+* Test type (type of the study protocol {acute toxic class, up-and-down, ...})
+* Species and Strain
+* Route of administration
+* Effect levels, Dose descriptor {approximate LD50, discriminating dose, LD0, LD100, LD50, LD50 cut-off, LDLo, other:}
+* Effect levels, Effect level (the dose corresponding to the dose descriptor)
+* Effect levels, Remarks on result (ignored)
+* Interpretation of results (categorization according to GHS criteria, very useful in the current context)
+
+There are two issues regarding the data export function
+1. The fields are AND connected and fields with missing values lead to exclusion of the whole entry form the exported results. If a variable is left blank in the query, it is not included in the result.  
+2. Exports are limited to 10000 observations (i.e. study results).
+
+Both problems can be circumvented by creating various queries and joining the data by other means. The second is quite easily managable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. The first "just" needs an additional "layer" of distinct queries for every varibale that should be exported.
+
+
+
+
+
+```{r echemportal deprecated}
+clp_minimum %>%
+  pull(cas) %>%
+  write("export_for_epa_dashboard.txt")
+
+
+read_csv("data/ChemistryDashboard-Batch-Search_2019-02-07_12_36_31.csv")
+```
