@@ -1,7 +1,7 @@
 ---
 title: "CLP Minimum classifications"
 author: "Marco Dilger"
-date: "February 6, 2019"
+date: "February 14, 2019"
 output: html_document
 ---
 
@@ -91,7 +91,7 @@ eChemPortals property search [link](https://www.echemportal.org/echemportal/prop
 * Species and Strain
 * Route of administration
 * Effect levels, Dose descriptor {approximate LD50, discriminating dose, LD0, LD100, LD50, LD50 cut-off, LDLo, other:}
-* Effect levels, Effect level (the dose corresponding to the dose descriptor)
+* Effect levels, Effect level (the dose corresponding to the dose descriptor, specified by a quantifier amd the unit)
 * Effect levels, Remarks on result (ignored)
 * Interpretation of results (categorization according to GHS criteria, very useful in the current context)
 
@@ -100,10 +100,82 @@ There are two issues regarding the data export function
 2. Exports are limited to 10000 observations (i.e. study results).
 
 Both problems can be circumvented by creating various queries and joining the data by other means. The second is quite easily managable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. The first "just" needs an additional "layer" of distinct queries for every varibale that should be exported.
+I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity: 
+* type of information: needs to be experimental (i.e. no QSAR and read-accross studies)  
+* reliability (only RL1 & RL2)
+* Reference, year: left out if query results in less than 10000 results. else: 1990 is a good value to split the requests
+* Effect level dose descriptors: all
+* Effect level values: overlapping 0 - 9999 for each units. For each type of exposure, there is one corresponding unit (oral: mg/kg bw, dermal: mL/kg, inhalative: mg/m2)
+
+
+### Processing the exported results from eChemPortal
+
+#### for now only oral, tbc for inhal and dermal  
+Each query was exported as one csv file.
+
+```{r echemportal loading data}
+files <- list.files(path ="data/echemportal/", pattern = "oral.*csv$", full.names = T)
+
+studies_oral <- map(files, read_csv2) %>% bind_rows
+
+studies_oral_clean <- studies_oral %>% 
+  transmute(name = `Substance Name`,
+            substance_number = `Substance Number`,
+            number_type = `Number type`,
+            link = `Substance Link`,
+            route = str_extract(Section, "(?<=Acute toxicity: ).+"),
+            reliability = str_extract(Values, "(?<=Reliability: )(\\d)"),
+            descriptor = str_extract(Values, "(?<=Dose descriptor: ).+(?<!\\s)"),
+            effect_level = str_extract(Values, "(?<=Effect level: ).+")
+            )
+```
+
+```{r extract dose quantifier, dose and unit}
+studies_oral_clean <- studies_oral_clean %>% 
+  mutate(
+    effect_level_quantifier = str_extract(effect_level, "^\\D+(?=\\s)"),
+    effect_level_dose = str_extract(effect_level, "(\\d+)"),
+    unit = str_extract(effect_level, "(?<=\\d\\s)\\D+$")
+  )
+
+
+
+studies_oral_clean %>%
+  pull(number_type) %>%
+  table
+```
+245 with EC number could be converted to CAS numbers. 2198 unknowns. What are these?
+```{r look at unknowns and EC}
+studies_oral_clean %>% 
+  filter(str_detect(number_type, "EC")) %>% 
+  View
+```
+## Convert EC to CAS
+### Any substances in the CLP list that have EC, but no CAS?
+
+```{r check cas and EC in clp data}
+clp_minimum %>% 
+  filter(!is.na(ec) & is.na(cas)) %>% 
+  View
+
+```
+### Concert EC to CAS
+
+ToDo. Currently no idea how which service provides this
+
+```{r}
+
+
+```
 
 
 
 
+
+
+
+
+### leftovers
 
 ```{r echemportal deprecated}
 clp_minimum %>%
