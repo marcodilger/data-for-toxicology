@@ -147,7 +147,7 @@ studies_oral_clean %>%
 245 with EC number could be converted to CAS numbers. 2198 unknowns. What are these?
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
-  filter(str_detect(number_type, "EC")) %>% 
+  filter(str_detect(number_type, "EC|Unknown")) %>% 
   View
 ```
 ## Convert EC to CAS
@@ -159,15 +159,48 @@ clp_minimum %>%
   View
 
 ```
-### Concert EC to CAS
+yes, several. This should be fixed.
 
-ToDo. Currently no idea how which service provides this
+### Convert EC to CAS
+
+Not possible directly via webchem (PubChem and CTS both don't support EC input).
+Possibility is to use the EC inventory and do a lookup. However the EC invnetory export is limited to 20000 entires.
+For this purpose the list of registered substances should be sufficient (currently little over 20000 entries, if only full registrations are exported, the lis is well within ECHAs download limit).
+
+### Using ECHAs list of registered substances for the EC to CAS lookup
 
 ```{r}
+echa_substances <- read_delim(file = "data/reg-substances-export.csv", delim = "\t", skip = 34)
 
+# cleaning 
+echa_substances <- echa_substances %>% 
+  transmute(name_echa = Name,
+            cas_echa = `Cas Number`,
+            ec_echa = `EC / List Number`)
+
+
+# which are identified by EC Number
+studies_oral_clean %>% 
+  filter(str_detect(number_type, "EC")) %>% 
+  View
+
+# left_join
+
+studies_oral_ec <- studies_oral_clean %>% 
+  filter(str_detect(number_type, "EC")) %>% 
+  left_join(echa_substances, by = c("substance_number" = "ec_echa")) 
+
+
+# this creates doubles... why?
+
+echa_substances %>% 
+  filter(ec_echa == "484-460-1") %>% 
+  View
+
+# thats why, double entries in the EC list, which is used as lookup table
 
 ```
-
+ToCheck: warum doppelte EInträge?
 
 
 
