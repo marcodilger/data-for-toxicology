@@ -176,7 +176,9 @@ echa_substances <- read_delim(file = "data/reg-substances-export.csv", delim = "
 echa_substances <- echa_substances %>% 
   transmute(name_echa = Name,
             cas_echa = `Cas Number`,
-            ec_echa = `EC / List Number`)
+            ec_echa = `EC / List Number`) %>% 
+  distinct(ec_echa, .keep_all = TRUE) #needed because echa_substances contains duplicates from        
+                                      #joint/individual submssions
 
 
 # which are identified by EC Number
@@ -188,19 +190,15 @@ studies_oral_clean %>%
 
 studies_oral_ec <- studies_oral_clean %>% 
   filter(str_detect(number_type, "EC")) %>% 
-  left_join(echa_substances, by = c("substance_number" = "ec_echa")) 
+  left_join(echa_substances, by = c("substance_number" = "ec_echa")) %>% 
+  mutate(cas_echa = ifelse(cas_echa == "-", NA, cas_echa))
+
+# todo: find way to identify entries that can't be identified by cas (because of NA e.g.) by name instead.
 
 
-# this creates doubles... why?
-
-echa_substances %>% 
-  filter(ec_echa == "484-460-1") %>% 
-  View
-
-# thats why, double entries in the EC list, which is used as lookup table
 
 ```
-ToCheck: warum doppelte EInträge?
+
 
 
 
