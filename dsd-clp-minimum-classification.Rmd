@@ -195,14 +195,27 @@ studies_oral_ec <- studies_oral_clean %>%
 
 # todo: find way to identify entries that can't be identified by cas (because of NA e.g.) by name instead.
 
-
-
 ```
 
+### Some for entries without any Number: trying to lookup using ECHAs list of registered substances by the name of the substances (likely to fail)
+
+This is likely to fail, as these are probably substances without a CAS number anyways.
+```{r name to cas}
+
+studies_oral_name <- studies_oral_clean %>% 
+  filter(str_detect(number_type, "Unknown")) %>% 
+  left_join(echa_substances, by = c("name" = "name_echa")) %>% 
+  mutate(cas_echa = ifelse(cas_echa == "-", NA, cas_echa))
 
 
+studies_oral_name %>% 
+  filter(is.na(cas_echa) & is.na(ec_echa)) %>% 
+  View
+```
+ToDo: remove those that dont have name, nor cas nor echa.
+there shouldn't be any entries witout EC number actually because we're using ECHA dissemiated data here -> all should have an EC number,
 
-
+e.g. exemplary check OR: lookup by WebChem using PubChem
 
 
 
