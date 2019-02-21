@@ -249,25 +249,41 @@ studies_oral_clean <- studies_oral_ec %>%
   )
 ```
 
-### Step 2: For thse with no Ident. by EC nor by CAS, but succesful lookup by name: use name for comparison
+### Step 2: For those with Ident. by EC or by CAS after succesful name lookup: replace CAS by EC
 ```{r step 2 joining}
-studies_oral_name %>% 
-  mutate(number_type = "use_name") %>% 
+studies_oral_clean <- studies_oral_name %>%
+  filter(!is.na(cas_echa)) %>% 
+  mutate(substance_number = cas_echa,
+         number_type = "CAS Number") %>% 
   bind_rows(studies_oral_clean %>%
               filter(number_type != "Unknown")
-  ) %>% 
-  View # ToDo mistake here, now there are number_type = use_name which DO have a CAS No
-      # needs to be split in step 2 + step 3: first use those obs where name lookup succeeded = step 2
+  ) 
 
 ```
 
+### Step 3: For those with no Ident. by EC nor by CAS after name lookup: use name getting classification
 
-
+```{r step 3 joining}
+studies_oral_clean <-
+  studies_oral_name %>%
+  filter(is.na(cas_echa)) %>%
+  mutate(number_type = "use_name") %>%
+  bind_rows(studies_oral_clean %>%
+              filter(number_type != "Unknown") # redundant with current processing
+            )
+```
+Adds some 160 entries. Probably not really worth it.
 
 
 ## Try to derive CLP classification based on experimental data
 
+```{r sequentially derive CLP classification from experimental data}
+studies_oral_clean %>% 
+  mutate() # ToDo
 
+
+
+```
 
 ### leftovers
 
