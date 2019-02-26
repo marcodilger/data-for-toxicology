@@ -295,13 +295,15 @@ studies_oral_cat_derived <- studies_oral_clean %>%
   mutate(category_from_exp = ifelse(is.na(effect_level_quantifier) & effect_level_dose > 2000, "not classified", NA),
          category_from_exp = ifelse(is.na(category_from_exp) & 
                                       str_detect(effect_level_quantifier, ">|ca") & # '=' doest not exist, in ths case the quantifier is na 
-                                      effect_level_dose > 2000, "not classified", category_from_exp)
+                                      effect_level_dose >= 2000, "not classified", category_from_exp)
          ) %>% 
   
   #
   # handle cat. 4
   #
-  mutate(category_from_exp = ifelse(is.na(effect_level_quantifier) & effect_level_dose >= 300, 4, category_from_exp),
+  mutate(category_from_exp = ifelse(is.na(category_from_exp) &
+                                    is.na(effect_level_quantifier) &
+                                    effect_level_dose >= 300, 4, category_from_exp),
          category_from_exp = ifelse(is.na(category_from_exp) & 
                                       str_detect(effect_level_quantifier, ">|ca") & # '=' doest not exist, in ths case the quantifier is na 
                                       effect_level_dose >= 300, 4, category_from_exp),
@@ -353,18 +355,32 @@ studies_oral_cat_derived <- studies_oral_clean %>%
 
 studies_oral_cat_derived %>% 
   filter(is.na(category_from_exp)) %>% 
-  View
+  nrow
 
 ```
 All classified
 
 ```{r classification stats}
 studies_oral_cat_derived %>% 
-  pull(category_from_exp) %>% 
-  as.factor %>% 
-  plot
+  group_by(category_from_exp) %>% 
+  tally %>% 
+  ggplot(aes(x = category_from_exp, y = n)) +
+  geom_bar(stat = "identity")
 
 ```
+## Combine harmonized classification with classification derived from experimental data
+
+```{r combine harmonized with derived classification}
+
+data_combined <- clp_minimum %>% 
+  inner_join(studies_oral_cat_derived %>% 
+               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose) %>% 
+               filter(number_type == "CAS Number"),
+               by = c("cas" = "substance_number")
+               ) %>% 
+  View
+
+``` 
 
 ### leftovers
 
