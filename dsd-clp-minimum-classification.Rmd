@@ -138,7 +138,7 @@ studies_oral_clean <- studies_oral %>%
 studies_oral_clean <- studies_oral_clean %>% 
   mutate(
     effect_level_quantifier = str_extract(effect_level, "^\\D+(?=\\s)"),
-    effect_level_dose = str_extract(effect_level, "(\\d+)"),
+    effect_level_dose = as.numeric(str_extract(effect_level, "(\\d+)")),
     unit = str_extract(effect_level, "(?<=\\d\\s)\\D+$")
   )
 
@@ -277,11 +277,92 @@ Adds some 160 entries. Probably not really worth it.
 
 ## Try to derive CLP classification based on experimental data
 
+The classification limits for oral toxicity are:
+
+| category | lower limit | upper limit |
+|----------|-------------|-------------|
+| 1        | NA          | 5           |
+| 2        | 5           | 50          |
+| 3        | 50          | 300         |
+| 4        | 300         | 2000        |
+| none     | 2000        | NA          |
+
 ```{r sequentially derive CLP classification from experimental data}
-studies_oral_clean %>% 
-  mutate() # ToDo
+studies_oral_cat_derived <- studies_oral_clean %>% 
+  #
+  # handle not classified
+  #
+  mutate(category_from_exp = ifelse(is.na(effect_level_quantifier) & effect_level_dose > 2000, "not classified", NA),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                      str_detect(effect_level_quantifier, ">|ca") & # '=' doest not exist, in ths case the quantifier is na 
+                                      effect_level_dose > 2000, "not classified", category_from_exp)
+         ) %>% 
+  
+  #
+  # handle cat. 4
+  #
+  mutate(category_from_exp = ifelse(is.na(effect_level_quantifier) & effect_level_dose >= 300, 4, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                      str_detect(effect_level_quantifier, ">|ca") & # '=' doest not exist, in ths case the quantifier is na 
+                                      effect_level_dose >= 300, 4, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                      str_detect(effect_level_quantifier, "<") &
+                                      effect_level_dose > 300, 4, category_from_exp)
+         ) %>% 
+  #
+  # handle cat 3
+  #
+  mutate(category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    is.na(effect_level_quantifier) &
+                                    effect_level_dose >= 50, 3, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, ">|ca") & 
+                                    effect_level_dose >= 50, 3, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, "<") & 
+                                    effect_level_dose > 50, 3, category_from_exp)
+         ) %>% 
+   #
+  # handle cat 2
+  #
+  mutate(category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    is.na(effect_level_quantifier) &
+                                    effect_level_dose >= 5, 2, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, ">|ca") & 
+                                    effect_level_dose >= 5, 2, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, "<") & 
+                                    effect_level_dose > 5, 2, category_from_exp)
+         ) %>% 
+   #
+  # handle cat 1
+  #
+  mutate(category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    is.na(effect_level_quantifier) &
+                                    effect_level_dose < 5, 1, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, ">|ca") & 
+                                    effect_level_dose < 5, 1, category_from_exp),
+         category_from_exp = ifelse(is.na(category_from_exp) & 
+                                    str_detect(effect_level_quantifier, "<") & 
+                                    effect_level_dose <= 5, 3, category_from_exp)
+         )
 
+# check if all are classified
 
+studies_oral_cat_derived %>% 
+  filter(is.na(category_from_exp)) %>% 
+  View
+
+```
+All classified
+
+```{r classification stats}
+studies_oral_cat_derived %>% 
+  pull(category_from_exp) %>% 
+  as.factor %>% 
+  plot
 
 ```
 
