@@ -59,7 +59,7 @@ clp_table_tidy %>% pull(clp_class) %>%
 
 ```{r extract minimum categorization}
 clp_minimum <- clp_table_tidy %>%
-  filter(str_detect(clp_class, "\\*$")) # select all observations where the hazard class category ends with '*'
+  filter(str_detect(clp_class, "Acute.*\\*$")) # select all observations where the hazard class category contains acute tox and  ends with '*'
 ```
 2845 substances
 
@@ -372,15 +372,48 @@ studies_oral_cat_derived %>%
 
 ```{r combine harmonized with derived classification}
 
-data_combined <- clp_minimum %>% 
-  inner_join(studies_oral_cat_derived %>% 
+data_oral_combined_cas <- clp_minimum %>% 
+  filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
+  full_join(studies_oral_cat_derived %>% 
                select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose) %>% 
                filter(number_type == "CAS Number"),
                by = c("cas" = "substance_number")
+               )
+# todo include those by name -> how? unsolved for now
+
+data_oral_combined_name <- clp_minimum %>% 
+  filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
+  full_join(studies_oral_cat_derived %>% 
+               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose) %>% 
+               filter(number_type == "use_name"),
+               by = c("substance" = "name")
                ) %>% 
-  View
+  filter(!is.na(number_type))
+
+data_oral_combined_name$substance %in% data_oral_combined_cas$substance %>% 
+  table
 
 ``` 
+Not a single study record of a substance that could not be identified by CAS/EC could be linked to the CLP table by the substance name. Still worth to check, this could be different for the other routes
+
+```{r}
+data_oral_combined_cas %>% 
+  filter(is.na(cas) | cas == "-") %>% 
+  nrow
+```
+very few left without CAS, going to ignore these.
+
+```{r}
+data_oral_combined <- data_oral_combined_cas %>% 
+  filter(!is.na(cas) & cas != "-")
+
+data_oral_combined %>% 
+  group_by(cas) %>%
+  summarise(has_experimental_data = any(!is.na(category_from_exp))) %>% 
+  ggplot(aes(x = cas, ..count..)) +
+  geom_bar()
+```
+  
 
 ### leftovers
 
