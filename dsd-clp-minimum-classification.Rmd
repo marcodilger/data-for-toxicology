@@ -426,37 +426,56 @@ data_oral_combined %>%
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
   group_by(cas) %>% 
-  summarize(single_category = mean(as.numeric(category_from_exp), na.rm = TRUE), #na.rm = TRUE is redundant
+  summarize(single_category = mean(as.numeric(str_replace(category_from_exp, "not classified", "5")), na.rm = TRUE), #na.rm = TRUE is redundant; not classified treated as numerical value of 5
             clp_class = tail(names(sort(table(clp_class))), 1),
             n_experiment = sum(!is.na(category_from_exp))
             ) %>% 
  ggplot(aes(x = factor(clp_class), y = single_category, size = n_experiment)) +
-  geom_point(alpha = 0.5, position = position_jitter()) # probably better: stacked instead of jittered
+  geom_point(alpha = 0.5, position = position_jitter())
 ```
 Already obvious that there is a high amount of substances which can quite reliably be classified to a more strict category than according to the minimum classification. Nearly all of these substances would "jump" 1 category, however there are some currently classified as "Acute Tox 4 *" which would probably jump to cat. 2 (indicated by several experimental studies with a mean LD50 < 3).
 
 Identifiying these candidates for concern by a constructed variable:
 
 ```{r}
-data_oral_combined %>% 
+data_oral_grouped <- data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
   group_by(cas) %>% 
-  summarize(single_category = mean(as.numeric(category_from_exp), na.rm = TRUE), #na.rm = TRUE is redundant
+  summarize(single_category = mean(as.numeric(str_replace(category_from_exp, "not classified", "5")), na.rm = TRUE), #na.rm = TRUE is redundant; not classified treated as numerical value of 5
             clp_class = tail(names(sort(table(clp_class))), 1),
             n_experiment = sum(!is.na(category_from_exp))
             ) %>% 
   # concern = 2 for experimental data which deviate > 1 from current classification
   # concern = 1                                     < 1 > 0
   # concern = 0 else
-  mutate(numeric_clp_class = as.numeric(str_extract(clp_class, "\\d")),
+  mutate(numeric_clp_class = as.numeric(str_extract(clp_class, "\\d")), #treat not classified as numerical value 5
          concern = ifelse(single_category < numeric_clp_class - 1, 2, 
                          ifelse(single_category < numeric_clp_class, 1, 0)
                           )
-         ) %>% 
-ggplot(aes(x = factor(clp_class), y = single_category, size = n_experiment, color = factor(concern))) +
-  geom_point(alpha = 0.5, position = position_jitter())
+         )
+
+# plot
+data_oral_grouped %>% 
+  ggplot(aes(x = factor(clp_class), y = single_category, size = n_experiment, color = factor(concern))) +
+  geom_point(alpha = 0.4, position = position_jitter())
 ```
+
+### Closer look at those with concern >= 1
+
+Extend the data on single experiments with the derived info from grouping by substances and plot substances of high concern
+
+```{r}
+data_oral_extended <- data_oral_combined %>% 
+  inner_join(data_oral_grouped, by = c("cas", "clp_class"))
+
+data_oral_extended %>% 
+  filter(concern == 2) %>% 
+  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, size = rev(reliability))) +
+  geom_point(alpha = 0.5, position = position_dodge(width = 0.5))
+
+```
+
 
 
 ### leftovers
