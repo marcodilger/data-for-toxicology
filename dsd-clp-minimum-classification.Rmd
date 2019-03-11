@@ -461,7 +461,7 @@ data_oral_grouped %>%
   geom_point(alpha = 0.4, position = position_jitter())
 ```
 
-### Closer look at those with concern >= 1
+### Closer look at those with concern > 1
 
 Extend the data on single experiments with the derived info from grouping by substances and plot substances of high concern
 
@@ -470,12 +470,51 @@ data_oral_extended <- data_oral_combined %>%
   inner_join(data_oral_grouped, by = c("cas", "clp_class"))
 
 data_oral_extended %>% 
-  filter(concern == 2) %>% 
-  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, size = rev(reliability))) +
-  geom_point(alpha = 0.5, position = position_dodge(width = 0.5))
+  filter(concern > 1) %>% 
+  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, shape = reliability)) +
+  geom_point(alpha = 0.5, position = position_dodge(0.3), size = 5)
+  
 
 ```
+### same for concern = 1
 
+```{r}
+data_oral_extended %>% 
+  filter(concern >= 1) %>% 
+  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, shape = reliability)) +
+  geom_point(alpha = 0.5, position = position_dodge(0.5), size = 5) +
+  theme(legend.position="none")
+  
+```
+Visualization not really useful.
+facet wrap by clp_class and aligned dot plot?
+```{r}
+
+data_oral_extended %>% 
+  filter(concern >= 1) %>% 
+  pull(substance) %>% 
+  unique %>% 
+  length
+
+
+data_oral_extended %>% 
+  filter(concern >= 1) %>% 
+  arrange(single_category) %>% 
+  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, color = as.factor(numeric_clp_class))) + # fct_reorder to order factor from lowest single_category to highest
+  geom_count() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(label = function(x) substring(x, 1, 20))
+  
+```
+### closer look at identified substances of concern
+
+```{r}
+data_oral_extended %>% 
+  filter(concern >= 2) %>% 
+  arrange(single_category) %>% 
+  View
+```
+ToDo: suspicion: dose/unit conversion needed/forgotten. unit needs to be transported!
 
 
 ### leftovers
@@ -484,7 +523,8 @@ Are there any study results without an EC number of substances that appear in th
 
 ```{r}
 (studies_oral_name %>% 
-  filter(is.na(cas_echa) & is.na(ec_echa)) %>% 
+  filter(is.n)) +
+a(cas_echa) & is.na(ec_echa)) %>% 
   pull(name) %>%
   unique) %in% (clp_minimum %>% filter(str_detect(h_code, "H30\\d")) %>% 
   pull(substance)) # hazard codes with 30\d are the ones for acute oral toxicity
