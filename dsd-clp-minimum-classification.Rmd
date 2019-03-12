@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl) # reads xlsx without outer dependencies
+library(plotly)
 ```
 
 ## Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification
@@ -367,7 +368,8 @@ studies_oral_cat_derived %>%
   ggplot(aes(x = category_from_exp, y = n)) +
   geom_bar(stat = "identity")
 
-```
+```  
+  
 ## Combine harmonized classification with classification derived from experimental data
 
 ```{r combine harmonized with derived classification}
@@ -375,16 +377,16 @@ studies_oral_cat_derived %>%
 data_oral_combined_cas <- clp_minimum %>% 
   filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
   full_join(studies_oral_cat_derived %>% 
-               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose) %>% 
+               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
                filter(number_type == "CAS Number"),
                by = c("cas" = "substance_number")
                )
-# todo include those by name -> how? unsolved for now
+
 
 data_oral_combined_name <- clp_minimum %>% 
   filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
   full_join(studies_oral_cat_derived %>% 
-               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose) %>% 
+               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
                filter(number_type == "use_name"),
                by = c("substance" = "name")
                ) %>% 
@@ -487,7 +489,7 @@ data_oral_extended %>%
   
 ```
 Visualization not really useful.
-facet wrap by clp_class and aligned dot plot?
+trying aligned dot plot, amount of studies as dot size 
 ```{r}
 
 data_oral_extended %>% 
@@ -497,13 +499,15 @@ data_oral_extended %>%
   length
 
 
-data_oral_extended %>% 
+plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
   ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, color = as.factor(numeric_clp_class))) + # fct_reorder to order factor from lowest single_category to highest
   geom_count() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_x_discrete(label = function(x) substring(x, 1, 20))
+
+plot_substances_of_concern
   
 ```
 ### closer look at identified substances of concern
@@ -514,7 +518,22 @@ data_oral_extended %>%
   arrange(single_category) %>% 
   View
 ```
-ToDo: suspicion: dose/unit conversion needed/forgotten. unit needs to be transported!
+Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
+```{r}
+data_oral_extended %>% 
+  pull(unit) %>% 
+  table
+```
+Nope.
+
+### Interactive visualization and comparison with registration dossiers
+
+```{r}
+
+ggplotly(plot_substances_of_concern)
+
+```
+To continue: add custom/additional data to plotly output: reliability, numericla study results
 
 
 ### leftovers
@@ -523,8 +542,7 @@ Are there any study results without an EC number of substances that appear in th
 
 ```{r}
 (studies_oral_name %>% 
-  filter(is.n)) +
-a(cas_echa) & is.na(ec_echa)) %>% 
+  filter(is.na(cas_echa) & is.na(ec_echa)) %>% 
   pull(name) %>%
   unique) %in% (clp_minimum %>% filter(str_detect(h_code, "H30\\d")) %>% 
   pull(substance)) # hazard codes with 30\d are the ones for acute oral toxicity
