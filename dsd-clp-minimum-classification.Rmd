@@ -530,10 +530,25 @@ Nope.
 
 ```{r}
 
-ggplotly(plot_substances_of_concern)
+plot_substances_of_concern_plotly <- data_oral_extended %>% 
+  filter(concern >= 1) %>% 
+#  arrange(single_category) %>% 
+  group_by(substance, category_from_exp) %>% 
+  mutate(
+    plot_label = paste(paste(ifelse(is.na(effect_level_quantifier), "  ", effect_level_quantifier)
+                              , effect_level_dose, unit, "- reliability:", reliability, sep = " "),
+                        sep = "", collapse = "\n")
+  ) %>% 
+  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, color = as.factor(numeric_clp_class), label = plot_label))  + # fct_reorder to order factor from lowest single_category to highest
+  geom_count() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(label = function(x) substring(x, 1, 20))
+
+ggplotly(plot_substances_of_concern_plotly,
+         tooltip = c("label")) # instead of "all"
 
 ```
-To continue: add custom/additional data to plotly output: reliability, numericla study results
+
 
 
 ### leftovers
