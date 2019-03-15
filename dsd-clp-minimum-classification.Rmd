@@ -153,7 +153,7 @@ studies_oral_clean %>%
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
   filter(str_detect(number_type, "EC|Unknown")) %>% 
-  View
+  head
 ```
 ## Convert EC to CAS
 ### Any substances in the CLP list that have EC, but no CAS?
@@ -161,7 +161,7 @@ studies_oral_clean %>%
 ```{r check cas and EC in clp data}
 clp_minimum %>% 
   filter(!is.na(ec) & is.na(cas)) %>% 
-  View
+  head
 
 ```
 yes, several. This should be fixed.
@@ -377,7 +377,7 @@ studies_oral_cat_derived %>%
 data_oral_combined_cas <- clp_minimum %>% 
   filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
   full_join(studies_oral_cat_derived %>% 
-               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
+               select(name, substance_number, number_type, link, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
                filter(number_type == "CAS Number"),
                by = c("cas" = "substance_number")
                )
@@ -386,7 +386,7 @@ data_oral_combined_cas <- clp_minimum %>%
 data_oral_combined_name <- clp_minimum %>% 
   filter(str_detect(h_code, "H30\\d")) %>% # select only acute oral toxicity
   full_join(studies_oral_cat_derived %>% 
-               select(name, substance_number, number_type, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
+               select(name, substance_number, number_type, link, category_from_exp, reliability, effect_level_quantifier, effect_level_dose, unit) %>% 
                filter(number_type == "use_name"),
                by = c("substance" = "name")
                ) %>% 
@@ -489,8 +489,9 @@ data_oral_extended %>%
   
 ```
 Visualization not really useful.
-trying aligned dot plot, amount of studies as dot size 
-```{r}
+trying aligned dot plot, amount of studies as dot size:
+
+```{r out.width = "80%"}
 
 data_oral_extended %>% 
   filter(concern >= 1) %>% 
@@ -509,14 +510,15 @@ plot_substances_of_concern <- data_oral_extended %>%
 
 plot_substances_of_concern
   
-```
+```   
+
 ### closer look at identified substances of concern
 
 ```{r}
 data_oral_extended %>% 
   filter(concern >= 2) %>% 
   arrange(single_category) %>% 
-  View
+  head
 ```
 Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
 ```{r}
@@ -528,7 +530,7 @@ Nope.
 
 ### Interactive visualization and comparison with registration dossiers
 
-```{r}
+```{r out.width = "100%"}
 
 plot_substances_of_concern_plotly <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
@@ -547,9 +549,18 @@ plot_substances_of_concern_plotly <- data_oral_extended %>%
 ggplotly(plot_substances_of_concern_plotly,
          tooltip = c("label")) # instead of "all"
 
+``` 
+
+Comparing the substances with concern > 1 with registration data
+```{r getting links to dossiers}
+data_oral_extended %>% 
+  filter(concern > 1) %>% 
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
 ```
 
-
+#### 1,2-epoxybutane
+Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link)...oh dear...great start...the second study is 1 g/kg bw in the dossier but made it as 1 mg/kg bw into the data.. to follow how this happened
+ToDo:
 
 ### leftovers
 
