@@ -55,8 +55,13 @@ clp_table_tidy <- clp_table %>%
   filter(str_length(clp_class) > 0)
 
 clp_table_tidy %>% pull(clp_class) %>% 
-  table %>% sort
+  table %>% sort %>% 
+  tail(20)
 ```
+```{r export clp table}
+write_csv(x = clp_table_tidy, path = "data/clp_table_atp10_20190214.csv")
+```  
+
 
 ```{r extract minimum categorization}
 clp_minimum <- clp_table_tidy %>%
@@ -68,7 +73,7 @@ clp_minimum <- clp_table_tidy %>%
 
 ### Sources of experimental data
 
-* ECHA dissemination database: For the substances which are registered, this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scraping the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?) 
+* ECHA dissemination database: For the substances which are registered,cc this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scraping the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?) 
 * eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but apparently that's only the 2017 database dump [(details here)](https://echa.europa.eu/-/data-on-15-000-chemicals-now-available-to-use), which would mean more recent data can't be found. **ToDo later: check if data from a post-2017 registration is included in eChemPortal**  
 * OECD Toolbox: Contains the data from the 2017 REACH database dump. With considerable amount of details (e.g. test item information in natural language. **Need to check this**.  
 * LRI Ambit2: [link](http://cefic-lri.org/toolbox/ambit2/). Also contains the data from the 2017 REACH db. Has an API? and is developed by Ideaconsult (good sign for data accessibility). **Need to check this**.  
@@ -415,6 +420,7 @@ data_oral_combined %>%
   ggplot(aes(has_experimental_data)) +
   geom_bar()
 ```
+  
 Good news, most substances have experimental data.
 
 ```{r}
@@ -434,7 +440,8 @@ data_oral_combined %>%
             ) %>% 
  ggplot(aes(x = factor(clp_class), y = single_category, size = n_experiment)) +
   geom_point(alpha = 0.5, position = position_jitter())
-```
+```  
+
 Already obvious that there is a high amount of substances which can quite reliably be classified to a more strict category than according to the minimum classification. Nearly all of these substances would "jump" 1 category, however there are some currently classified as "Acute Tox 4 *" which would probably jump to cat. 2 (indicated by several experimental studies with a mean LD50 < 3).
 
 Identifiying these candidates for concern by a constructed variable:
@@ -478,6 +485,7 @@ data_oral_extended %>%
   
 
 ```
+  
 ### same for concern = 1
 
 ```{r}
@@ -488,11 +496,11 @@ data_oral_extended %>%
   theme(legend.position="none")
   
 ```
+  
 Visualization not really useful.
 trying aligned dot plot, amount of studies as dot size:
 
-```{r out.width = "80%"}
-
+```{r}
 data_oral_extended %>% 
   filter(concern >= 1) %>% 
   pull(substance) %>% 
@@ -500,6 +508,9 @@ data_oral_extended %>%
   length
 
 
+  
+```  
+```{r substances_of_concern_plot, out.width = "100%"}
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
@@ -509,8 +520,9 @@ plot_substances_of_concern <- data_oral_extended %>%
   scale_x_discrete(label = function(x) substring(x, 1, 20))
 
 plot_substances_of_concern
-  
-```   
+
+```  
+
 
 ### closer look at identified substances of concern
 
