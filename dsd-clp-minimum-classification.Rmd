@@ -121,7 +121,7 @@ I'll be going for the minimal data needed for the purpose of getting experimenta
 ### Processing the exported results from eChemPortal
 
 #### for now only oral, tbc for inhal and dermal  
-Each query was exported as one csv file.
+Each query was exported as one csv file. Create one tibble of all csv files and create better variable name.
 
 ```{r echemportal loading data}
 files <- list.files(path ="data/echemportal/", pattern = "oral.*csv$", full.names = T)
@@ -132,13 +132,15 @@ studies_oral_clean <- studies_oral %>%
   transmute(name = `Substance Name`,
             substance_number = `Substance Number`,
             number_type = `Number type`,
-            link = `Substance Link`,
+            link = `Endpoint Link`,
             route = str_extract(Section, "(?<=Acute toxicity: ).+"),
             reliability = str_extract(Values, "(?<=Reliability: )(\\d)"),
             descriptor = str_extract(Values, "(?<=Dose descriptor: ).+(?<!\\s)"),
             effect_level = str_extract(Values, "(?<=Effect level: ).+")
             )
 ```
+
+Extract the effect concentrations, their quantifier, and the unit  
 
 ```{r extract dose quantifier, dose and unit}
 studies_oral_clean <- studies_oral_clean %>% 
@@ -154,12 +156,16 @@ studies_oral_clean %>%
   pull(number_type) %>%
   table
 ```
-245 with EC number could be converted to CAS numbers. 2198 unknowns. What are these?
+245 with EC number can be converted to CAS numbers or handled via EC number in case they have no CAS-RN. However, there are 2198 unknowns. What are these?
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
-  filter(str_detect(number_type, "EC|Unknown")) %>% 
-  head
+  filter(str_detect(number_type, "Unknown")) %>% 
+  head(20)
 ```
+Those with a name seem to be reaction masses. Those without a name seem to be primarily UVCBs and multi-constituent substances. Both are not important for this analysis (is it even possible under CLP?). However, they should all have an EC Number and it is unclear to me, why eChemPortal does not transport the substance number data.
+
+Still, trying to clean uo a bit...
+
 ## Convert EC to CAS
 ### Any substances in the CLP list that have EC, but no CAS?
 
@@ -173,9 +179,9 @@ yes, several. This should be fixed.
 
 ### Convert EC to CAS
 
-Not possible directly via webchem (PubChem and CTS both don't support EC input).
-Possibility is to use the EC inventory and do a lookup. However the EC invnetory export is limited to 20000 entires.
-For this purpose the list of registered substances should be sufficient (currently little over 20000 entries, if only full registrations are exported, the lis is well within ECHAs download limit).
+The webchem package [https://github.com/ropensci/webchem]((link to github)) is very nice for various conversions of chemical identifiers via CTS and PubChem. However EC-> CAS is not directly via PubChem or CTS as both don't support EC as input.
+A possibility is to use the EC inventory and do a lookup. However the EC invnetory export is limited to 20000 entires.
+For this purpose the list of registered substances should be sufficient. It has currently little over 20000 entries, but if only full registrations are exported, the list is well within ECHAs download limit).
 
 ### Using ECHAs list of registered substances for the EC to CAS lookup
 
@@ -208,7 +214,7 @@ studies_oral_ec <- studies_oral_clean %>%
 
 ```
 
-### Some for entries without any Number: trying to lookup using ECHAs list of registered substances by the name of the substances (likely to fail)
+### Same for entries without any Number: trying to lookup using ECHAs list of registered substances by the name of the substances (likely to fail)
 
 This is likely to fail, as these are probably substances without a CAS number anyways.
 ```{r name to cas}
@@ -226,7 +232,7 @@ studies_oral_name %>%
   View
 ```
 
-There shouldn't be any entries witout EC number actually because we're using ECHA disseminated data here. All entires should have at least an EC number.
+There shouldn't be any entries witout EC number actually because we're using ECHA disseminated data here. All entries should have at least an EC number.
 
 ```{r remove those with missing names and no identification via CAS No}
 studies_oral_name <- 
@@ -236,9 +242,6 @@ studies_oral_name <-
   mutate(name = ifelse(str_detect(name, "unnamed"), NA, name)) %>% 
   filter(!(is.na(cas_echa) & is.na(name)))
 ```
-
-ToDo: eChemPortal epxort appears to have a lot of missing names. Why is that? There also shouldn't be any exports from the REACH disseminated data without EC numbers. -> Check
-
 
 
 ## Combine the cleaned lists
@@ -570,9 +573,27 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
 ```
 
-#### 1,2-epoxybutane
-Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link)...oh dear...great start...the second study is 1 g/kg bw in the dossier but made it as 1 mg/kg bw into the data.. to follow how this happened
-ToDo:
+#### 1,2-epoxybutane  
+Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with the data?). Also the UUID seem to have changed. The reason for the big difference in the effect level concentration is a mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
+Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
+
+### peracetic acid  
+High number of studies, several RL1. UUIDs also don't match for this substance. I didn't check all study records in the dossier, but there is one very obvious problem here: in addition to the LD50 of the pure substance, also LD50 of formulations are reported (with consequently considerably higher LD50 values). Somehow these values don't show up in eChemPortal. Actually, it seems the data from eChemPortal contains only one LD50 value from each of the study records... :/
+Overall the classification as Category 2 seems to be very well justified based on the experimental data.
+
+### cyclohexylamine
+According to the eChemPortal data there are 2 studies, same reliability, different categories. The registration dossier has 3 study records with RL <= 2. Again, for the studies in eChemPortal in my data only 1 effect concentration can be found, although there are more in the dossier. In this case the data I am working with even is the NOAEL, while the LD50 is the missing value. Manual check in eChemPortal shows that the LD50s **are** there - need to check why I am losing those.
+
+In this case, category 2, as predicted from this analysis is **not** justified. Should be cat 4 and the minimal classification is not erroneous.
+
+### why do I loose data from eCP?
+
+```{r}
+studies_oral %>% 
+  filter(str_detect(`Substance Name`, "cyclohexanamine")) %>% 
+  pull(Values)
+```
+
 
 ### leftovers
 
