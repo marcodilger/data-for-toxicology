@@ -135,9 +135,15 @@ studies_oral_clean <- studies_oral %>%
             link = `Endpoint Link`,
             route = str_extract(Section, "(?<=Acute toxicity: ).+"),
             reliability = str_extract(Values, "(?<=Reliability: )(\\d)"),
-            descriptor = str_extract(Values, "(?<=Dose descriptor: ).+(?<!\\s)"),
-            effect_level = str_extract(Values, "(?<=Effect level: ).+")
-            )
+            effect_levels = str_extract(Values, "Effect levels(.|[:space:])*$")
+  ) %>% 
+  separate_rows(effect_levels, sep = "\\n\\r\\n\\r") %>% 
+  mutate(
+    descriptor = str_extract(effect_levels, "(?<=Dose descriptor: ).+(?<!\\s)"),
+    effect_level = str_extract(effect_levels, "(?<=Effect level: ).+")
+  ) %>% 
+  select(-effect_levels)
+
 ```
 
 Extract the effect concentrations, their quantifier, and the unit  
@@ -156,7 +162,7 @@ studies_oral_clean %>%
   pull(number_type) %>%
   table
 ```
-245 with EC number can be converted to CAS numbers or handled via EC number in case they have no CAS-RN. However, there are 2198 unknowns. What are these?
+Those with EC number can be converted to CAS numbers or handled via EC number in case they have no CAS-RN. However, there are over 2000 unknowns. What are these?
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
   filter(str_detect(number_type, "Unknown")) %>% 
@@ -590,7 +596,7 @@ In this case, category 2, as predicted from this analysis is **not** justified. 
 
 ```{r}
 studies_oral %>% 
-  filter(str_detect(`Substance Name`, "cyclohexanamine")) %>% 
+  filter(str_detect(`Substance Name`, "^cyclohexanamine$")) %>% 
   pull(Values)
 ```
 
