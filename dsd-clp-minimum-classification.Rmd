@@ -61,7 +61,7 @@ clp_table_tidy %>% pull(clp_class) %>%
 ```{r export clp table}
 write_csv(x = clp_table_tidy, path = "data/clp_table_atp10_20190214.csv")
 ```  
-
+The cleaned CLP data (10th ATP) is exported to "data/clp_table_atp10_20190214.csv".
 
 ```{r extract minimum categorization}
 clp_minimum <- clp_table_tidy %>%
@@ -155,20 +155,26 @@ studies_oral_clean <- studies_oral_clean %>%
     effect_level_dose = as.numeric(str_extract(effect_level, "(\\d+)")),
     unit = str_extract(effect_level, "(?<=\\d\\s)\\D+$")
   )
+```
+Keep only those with a suitable dose descriptor
 
+```{r}
+studies_oral_clean <- studies_oral_clean %>% 
+  filter(str_detect(descriptor, "^LD50$|^approximate LD50$"))
 
 
 studies_oral_clean %>%
   pull(number_type) %>%
   table
 ```
+
 Those with EC number can be converted to CAS numbers or handled via EC number in case they have no CAS-RN. However, there are over 2000 unknowns. What are these?
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
   filter(str_detect(number_type, "Unknown")) %>% 
   head(20)
 ```
-Those with a name seem to be reaction masses. Those without a name seem to be primarily UVCBs and multi-constituent substances. Both are not important for this analysis (is it even possible under CLP?). However, they should all have an EC Number and it is unclear to me, why eChemPortal does not transport the substance number data.
+Those with a name seem to be reaction masses. Those without a name seem to be primarily UVCBs and multi-constituent substances. Both are probably not too important for this analysis. However, they should all have an EC Number and it is unclear to me, why eChemPortal does not transport the substance number data.
 
 Still, trying to clean uo a bit...
 
@@ -186,7 +192,7 @@ yes, several. This should be fixed.
 ### Convert EC to CAS
 
 The webchem package [https://github.com/ropensci/webchem]((link to github)) is very nice for various conversions of chemical identifiers via CTS and PubChem. However EC-> CAS is not directly via PubChem or CTS as both don't support EC as input.
-A possibility is to use the EC inventory and do a lookup. However the EC invnetory export is limited to 20000 entires.
+A possibility is to use the EC inventory and do a lookup. However the EC inventory export is limited to 20000 entires.
 For this purpose the list of registered substances should be sufficient. It has currently little over 20000 entries, but if only full registrations are exported, the list is well within ECHAs download limit).
 
 ### Using ECHAs list of registered substances for the EC to CAS lookup
@@ -205,8 +211,7 @@ echa_substances <- echa_substances %>%
 
 # which are identified by EC Number
 studies_oral_clean %>% 
-  filter(str_detect(number_type, "EC")) %>% 
-  View
+  filter(str_detect(number_type, "EC"))
 
 # left_join
 
@@ -234,8 +239,7 @@ studies_oral_name <- studies_oral_clean %>%
 
 
 studies_oral_name %>% 
-  filter(is.na(cas_echa) & is.na(ec_echa)) %>% 
-  View
+  filter(is.na(cas_echa) & is.na(ec_echa))
 ```
 
 There shouldn't be any entries witout EC number actually because we're using ECHA disseminated data here. All entries should have at least an EC number.
@@ -541,7 +545,7 @@ data_oral_extended %>%
   arrange(single_category) %>% 
   head
 ```
-Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
+Only 1 substance with a difference > 2 between current CLH and classification derived from experimental data. However, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
 ```{r}
 data_oral_extended %>% 
   pull(unit) %>% 
@@ -583,6 +587,22 @@ data_oral_extended %>%
 Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with the data?). Also the UUID seem to have changed. The reason for the big difference in the effect level concentration is a mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
 Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
 
+Comparing the substances with concern = 1 with registration data
+```{r getting links to dossiers}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
+```
+Many important substances in this list. looking at some examples.
+
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "peracetic acid"))
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
+```
+
+
 ### peracetic acid  
 High number of studies, several RL1. UUIDs also don't match for this substance. I didn't check all study records in the dossier, but there is one very obvious problem here: in addition to the LD50 of the pure substance, also LD50 of formulations are reported (with consequently considerably higher LD50 values). Somehow these values don't show up in eChemPortal. Actually, it seems the data from eChemPortal contains only one LD50 value from each of the study records... :/
 Overall the classification as Category 2 seems to be very well justified based on the experimental data.
@@ -592,13 +612,6 @@ According to the eChemPortal data there are 2 studies, same reliability, differe
 
 In this case, category 2, as predicted from this analysis is **not** justified. Should be cat 4 and the minimal classification is not erroneous.
 
-### why do I loose data from eCP?
-
-```{r}
-studies_oral %>% 
-  filter(str_detect(`Substance Name`, "^cyclohexanamine$")) %>% 
-  pull(Values)
-```
 
 
 ### leftovers
