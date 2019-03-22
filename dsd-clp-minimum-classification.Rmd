@@ -434,7 +434,22 @@ data_oral_combined %>%
   geom_bar()
 ```
   
-Good news, most substances have experimental data.
+Good news, most substances have experimental data.  
+
+Occasionally several LD50 values are reported within the same study record. E.g. because the LD50 of (diluted) preparations/mixtures is reported as well or because there is a gender difference. The former is a problem for the analysis, the latter not. For the purpose of this analysis it is a viable solution to retain only the single lowest value from each study record. 
+
+```{r}
+data_oral_combined <- data_oral_combined %>% 
+  filter(unit == "mg/kg bw") %>% 
+  group_by(link) %>% # link can be used for grouping 
+  mutate(min_effect_level_dose = min(effect_level_dose)) %>% 
+  filter(effect_level_dose == min_effect_level_dose) %>% 
+  select(-min_effect_level_dose) %>% 
+  ungroup
+
+```
+
+### Visualization of derived category from every study with a LD50 value
 
 ```{r}
 data_oral_combined %>% 
@@ -491,6 +506,12 @@ Extend the data on single experiments with the derived info from grouping by sub
 data_oral_extended <- data_oral_combined %>% 
   inner_join(data_oral_grouped, by = c("cas", "clp_class"))
 
+```
+
+
+
+
+```{r}
 data_oral_extended %>% 
   filter(concern > 1) %>% 
   ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, shape = reliability)) +
@@ -498,6 +519,8 @@ data_oral_extended %>%
   
 
 ```
+
+
   
 ### same for concern = 1
 
@@ -519,10 +542,9 @@ data_oral_extended %>%
   pull(substance) %>% 
   unique %>% 
   length
-
-
   
 ```  
+
 ```{r substances_of_concern_plot, out.width = "100%"}
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
@@ -542,9 +564,10 @@ plot_substances_of_concern
 ```{r}
 data_oral_extended %>% 
   filter(concern >= 2) %>% 
-  arrange(single_category) %>% 
-  head
+  arrange(single_category)
 ```
+ToDo:
+
 Only 1 substance with a difference > 2 between current CLH and classification derived from experimental data. However, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
 ```{r}
 data_oral_extended %>% 
@@ -577,7 +600,7 @@ ggplotly(plot_substances_of_concern_plotly,
 ``` 
 
 Comparing the substances with concern > 1 with registration data
-```{r getting links to dossiers}
+```{r getting links to dossiers concern > 1}
 data_oral_extended %>% 
   filter(concern > 1) %>% 
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
@@ -588,7 +611,7 @@ Interesting case, eChemportal exported 2 studies with same reliability but treme
 Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
 
 Comparing the substances with concern = 1 with registration data
-```{r getting links to dossiers}
+```{r getting links to dossiers concern 1}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
@@ -598,13 +621,15 @@ Many important substances in this list. looking at some examples.
 ```{r}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
-  filter(str_detect(substance, "peracetic acid"))
+  filter(str_detect(substance, "peracetic acid")) %>% 
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
 ```
 
 
 ### peracetic acid  
-High number of studies, several RL1. UUIDs also don't match for this substance. I didn't check all study records in the dossier, but there is one very obvious problem here: in addition to the LD50 of the pure substance, also LD50 of formulations are reported (with consequently considerably higher LD50 values). Somehow these values don't show up in eChemPortal. Actually, it seems the data from eChemPortal contains only one LD50 value from each of the study records... :/
+Huge number of studies indicating all 4 categories, several RL1. UUIDs also don't match for this substance. I didn't check all study records in the dossier, but there is one very obvious problem here: in addition to the LD50 of the pure substance, also LD50 of formulations are reported (with consequently considerably higher LD50 values). It seems a viable solution, to only consider the lowest value reported within each study, this should get rid off prepaations with diluted substance (+ keeps the lower valu in case there is a gender difference)
+
+
 Overall the classification as Category 2 seems to be very well justified based on the experimental data.
 
 ### cyclohexylamine
@@ -612,25 +637,7 @@ According to the eChemPortal data there are 2 studies, same reliability, differe
 
 In this case, category 2, as predicted from this analysis is **not** justified. Should be cat 4 and the minimal classification is not erroneous.
 
-
-
-### leftovers
-
-Are there any study results without an EC number of substances that appear in the CLP list (identified by name)?
-
-```{r}
-(studies_oral_name %>% 
-  filter(is.na(cas_echa) & is.na(ec_echa)) %>% 
-  pull(name) %>%
-  unique) %in% (clp_minimum %>% filter(str_detect(h_code, "H30\\d")) %>% 
-  pull(substance)) # hazard codes with 30\d are the ones for acute oral toxicity
+```{r sessioninfo}
+sessioninfo()
 ```
 
-```{r echemportal deprecated}
-clp_minimum %>%
-  pull(cas) %>%
-  write("export_for_epa_dashboard.txt")
-
-
-read_csv("data/ChemistryDashboard-Batch-Search_2019-02-07_12_36_31.csv")
-```
