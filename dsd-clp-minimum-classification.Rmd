@@ -557,22 +557,6 @@ plot_substances_of_concern
 ```  
 
 
-### closer look at identified substances of concern
-
-```{r}
-data_oral_extended %>% 
-  filter(concern >= 2) %>% 
-  arrange(single_category)
-```
-ToDo:
-
-Only 1 substance with a difference > 2 between current CLH and classification derived from experimental data. However, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels
-```{r}
-data_oral_extended %>% 
-  pull(unit) %>% 
-  table
-```
-Nope.
 
 ### Interactive visualization and comparison with registration dossiers
 
@@ -596,44 +580,116 @@ ggplotly(plot_substances_of_concern_plotly,
          tooltip = c("label")) # instead of "all"
 
 ``` 
+### Comparing the substances with concern > 1 with registration data
 
-Comparing the substances with concern > 1 with registration data
-```{r getting links to dossiers concern > 1}
+```{r}
 data_oral_extended %>% 
-  filter(concern > 1) %>% 
-  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
+  filter(concern >= 2) %>% 
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
 ```
+Only 2 substances with a difference > 2 between current CLH and classification derived from experimental data. For epoxybutane, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels.
+```{r}
+data_oral_extended %>% 
+  pull(unit) %>% 
+  table
+```
+Nope. Closer look at epoxybutane:
+
 
 #### 1,2-epoxybutane  
 Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with the data?). Also the UUID seem to have changed. The reason for the big difference in the effect level concentration is a mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
 Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
 
-Comparing the substances with concern = 1 with registration data
+
+### peracetic acid
+
+Huge number of studies indicating category 2 & 3, several RL1. UUIDs also don't match for this substance. Interesting case as well, as there are several LD50 of formulations reported (with consequently considerably higher LD50 values than the neat substance). Filtering out these values by only keeping th ellowest seems to work reasonably well.
+Overall the classification as Category 2 seems to be very well justified based on the experimental data.
+
+
+### Comparing some of the substances with concern = 1 with registration data
 ```{r getting links to dossiers concern 1}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
-  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
 ```
 Many important substances in this list. looking at some examples.
+
+### Hydrogen Cyanide
 
 ```{r}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
-  filter(str_detect(substance, "peracetic acid")) %>% 
-  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, link)
+  filter(str_detect(substance, "(?i)hydrogen\\scyanide")) %>% 
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
 ```
 
 
-### peracetic acid  
-Huge number of studies indicating all 4 categories, several RL1. UUIDs also don't match for this substance. I didn't check all study records in the dossier, but there is one very obvious problem here: in addition to the LD50 of the pure substance, also LD50 of formulations are reported (with consequently considerably higher LD50 values). It seems a viable solution, to only consider the lowest value reported within each study, this should get rid off prepaations with diluted substance (+ keeps the lower valu in case there is a gender difference)
+4 experimental values from 2 studies. All values quite clearly indicating cat. 1 instead of 2, the current CLH category.
+ToDo: comparison with dossier
 
 
-Overall the classification as Category 2 seems to be very well justified based on the experimental data.
+### Acrylonitrile
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "(?i)acrylonitrile")) %>%
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
+```
+3 experimental values exported from eChemportal, from 2 studies. Same reliability, first study -> cat. 3, second study -> cat. 2. 
+ToDo: check dossier
 
-### cyclohexylamine
-According to the eChemPortal data there are 2 studies, same reliability, different categories. The registration dossier has 3 study records with RL <= 2. Again, for the studies in eChemPortal in my data only 1 effect concentration can be found, although there are more in the dossier. In this case the data I am working with even is the NOAEL, while the LD50 is the missing value. Manual check in eChemPortal shows that the LD50s **are** there - need to check why I am losing those.
+### chromium (VI) trioxide
 
-In this case, category 2, as predicted from this analysis is **not** justified. Should be cat 4 and the minimal classification is not erroneous.
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "(?i)chromium.*trioxide")) %>%
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
+```
+1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3, seems justified.
+
+### Nickel sulfate
+
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "(?i)nickel\\ssulfate")) %>%
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
+```
+CLH cat 4 seems justified. ToDo: Dossier
+
+### Vanadiumpentoxide
+
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "(?i)vanadium\\spentoxide")) %>%
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
+```
+2 RL1 studies with diverging classification results, difficult case that probably can't be judged correctly by just looking at the pure values. ToDo: check dossier for metal content.
+
+### Ethylacrylate
+
+```{r}
+data_oral_extended %>% 
+  filter(concern == 1) %>% 
+  filter(str_detect(substance, "(?i)ethyl.*acrylate")) %>%
+  select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
+  arrange(single_category, substance, reliability)
+```
+All available results from eChemportal are RL2, several indicating cat 3 instead of cat. 4 (current CLH), shoudl probbaly be classified as 3. ToDo: Dossier
+
+# Conclusion
+
+ToDo
 
 ```{r sessioninfo}
 sessioninfo()
