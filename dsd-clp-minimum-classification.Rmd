@@ -442,7 +442,8 @@ Occasionally several LD50 values are reported within the same study record. E.g.
 data_oral_combined <- data_oral_combined %>% 
   filter(unit == "mg/kg bw") %>% 
   group_by(link) %>% # link can be used for grouping 
-  filter(effect_level_dose == min(effect_level_dose)) %>%
+  filter(effect_level_dose == min(effect_level_dose)) %>% 
+  distinct(effect_level_dose, .keep_all = TRUE) %>% 
   ungroup
 
 ```
@@ -506,42 +507,7 @@ data_oral_extended <- data_oral_combined %>%
 
 ```
 
-
-
-
-```{r}
-data_oral_extended %>% 
-  filter(concern > 1) %>% 
-  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, shape = reliability)) +
-  geom_point(alpha = 0.5, position = position_dodge(0.3), size = 5)
-  
-
-```
-
-
-  
-### same for concern = 1
-
-```{r}
-data_oral_extended %>% 
-  filter(concern >= 1) %>% 
-  ggplot(aes(x = factor(clp_class), y = category_from_exp, color = substance, shape = reliability)) +
-  geom_point(alpha = 0.5, position = position_dodge(0.5), size = 5) +
-  theme(legend.position="none")
-  
-```
-  
-Visualization not really useful.
-trying aligned dot plot, amount of studies as dot size:
-
-```{r}
-data_oral_extended %>% 
-  filter(concern >= 1) %>% 
-  pull(substance) %>% 
-  unique %>% 
-  length
-  
-```  
+Aligned dot plot for visualization, amount of studies as dot size:
 
 ```{r substances_of_concern_plot, out.width = "100%"}
 plot_substances_of_concern <- data_oral_extended %>% 
@@ -628,8 +594,7 @@ data_oral_extended %>%
 ```
 
 
-4 experimental values from 2 studies. All values quite clearly indicating cat. 1 instead of 2, the current CLH category.
-ToDo: comparison with dossier
+There is experimental data from 2 studies. Both values quite clearly indicating cat. 1 instead of 2, the current CLH category. The registation dossier confirms these values (with a "creative" way of reporting effect concentration). Looks like HCN is currently not appropriately classified in the CLP.
 
 
 ### Acrylonitrile
@@ -640,8 +605,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-3 experimental values exported from eChemportal, from 2 studies. Same reliability, first study -> cat. 3, second study -> cat. 2. 
-ToDo: check dossier
+2 experimental values exported from eChemportal. Same reliability, first study corresponds to cat. 3, second study to cat. 2. These values fit the reported data in the dossier. The second value (indicating category 2 instead of 3), in this case corresponds to the lowest value of actually several studies given for this study in the registration dossier (as results from several studies are reported within in the same endpoint study record - certainly not ideal). Further, according to the result description, these results are from studies with different quality and the most reliable value is actually not the 25 mg/kg bw, but a higher one. Thus, category 3 seems justified.
 
 ### chromium (VI) trioxide
 
@@ -652,7 +616,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3, seems justified.
+1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3. Reporting in the dossier is again not ideal for automated processing: for one study record, the reported effect levels correspond to several chromates, and without processing the natural language it is not possible to determine which is the one for chromium (VI) oxide. Overall, cat. 3 seems justified.
 
 ### Nickel sulfate
 
