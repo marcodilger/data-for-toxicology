@@ -616,7 +616,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3. Reporting in the dossier is again not ideal for automated processing: for one study record, the reported effect levels correspond to several chromates, and without processing the natural language it is not possible to determine which is the one for chromium (VI) oxide. Overall, cat. 3 seems justified.
+1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3. Reporting in the dossier is again not ideal for automated processing: for one study record, the reported effect levels correspond to several chromates, and without processing the natural language it is not possible to determine which is the one for chromium (VI) oxide. Overall, this seems like a false alarm and cat. 3 is justified.
 
 ### Nickel sulfate
 
@@ -627,7 +627,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-CLH cat 4 seems justified. ToDo: Dossier
+Two experimental values from eChemportal. Fits the dossier, the first value is from a modern guideline study. The second is also from a quite reliable source and it's lowest LD50 value is just below the lower limit for cat. 4. CLH cat 4 seems justified, although a conservative approach could lead to 3.
 
 ### Vanadiumpentoxide
 
@@ -638,22 +638,30 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-2 RL1 studies with diverging classification results, difficult case that probably can't be judged correctly by just looking at the pure values. ToDo: check dossier for metal content.
+I took V~2~O~5~ in because at the time of this writeup, a CLH dossier was just submitted by France, so I can directly compare with an elaborated and recent opinion: [https://echa.europa.eu/de/registry-of-clh-intentions-until-outcome/-/dislist/details/0b0236e1814e26d1](Link). France proposes oral toxicity cat. 3 (and btw a stricter classification for CMR properties). The CLH report is not yet available.
+The dossier lists 3 high quality studies, which lowests results were correctly processed in this analysis. They are all from different test materials but from the same lab with the same protocol, so should be directly comparable. The lowest value comes from technical grade V~2~O~5~. Certainly this result was chosen as the critical one for classification, so that the CLH appropriately covers diverse qualities of V~2~O~5~. 
 
 ### Ethylacrylate
 
 ```{r}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
-  filter(str_detect(substance, "(?i)ethyl.*acrylate")) %>%
+  filter(str_detect(substance, "(?i)^ethyl.*acrylate")) %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-All available results from eChemportal are RL2, several indicating cat 3 instead of cat. 4 (current CLH), shoudl probbaly be classified as 3. ToDo: Dossier
+Wanted to take a closer look at Ethylacrylate for the high number of reliable studies available. 10 experimental results with RL2 exported from eChemportal. I didn't compare all results to the dossier, but it looks like all values are correctly exported. However some of the studies are quite old and it some have very little study details reported and sometimes low animal numbers... probably not all of the 10 studies should be considered equal in reliability.
+Regarding the classification it seems like those lower values are from exactly those studies which seem to have a lower reliability, so the current CLH with cat. 4 is likely appropriate even though 2 studies indicate 3. But this might need a closer look.
 
 # Conclusion
 
 ToDo
+## Suitability of eChemportal as a data source
+
+* tedious export
+* no obvious mistakes
+* recent data not inlcuded?
+
 
 ```{r sessioninfo}
 sessioninfo()
