@@ -3,6 +3,7 @@ title: "CLP Minimum classifications"
 author: "Marco Dilger"
 date: "February 14, 2019"
 output: html_document
+bibliography: bibliography/data-supported-tox.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -10,19 +11,20 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl) # reads xlsx without outer dependencies
 library(plotly)
+library(knitr)
 ```
 
-## Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification
+# Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification
 
-### Background
-Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (*this needs a figure for explanation*)). This \~\~may\~\~did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
+## Background
+Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (*this needs a figure for explanation*)). This ~~may~~ did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
 
-### Get data with CLP classifications
+## Get data with CLP classifications
 ECHA provides (unofficial) tabular data of harmonized classifications [here](https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp) in form of an excel file. The substances falling under the minimum classification are marked with an '*'.
 
 Unfortunately it's only availabe as an excel file. The excel file contains text in the first 4 rows, the table headers in the next two rows, and the data starting with row 7. Parsing two rows as table headers is not suported by readxl::read_excel (don't know about xlsx::read.xlsx), but the [issue discussion](https://github.com/tidyverse/readxl/issues/486) on github provides a working solution. 
 
-```{r get data}
+```{r get datam, echo = FALSE}
 
 headers <- read_excel("data/annex_vi_clp_table_atp10_en.xlsx", range = cell_rows(5:6), col_names = FALSE) %>%
   map(na.omit) %>% 
@@ -30,11 +32,14 @@ headers <- read_excel("data/annex_vi_clp_table_atp10_en.xlsx", range = cell_rows
   as.character
 
 clp_table <- read_excel("data/annex_vi_clp_table_atp10_en.xlsx", skip = 6, col_names = headers)
-# ToDo: look into option .name_repair
 
+```
+
+```{r glimpse at clp table}
 glimpse(clp_table)
 ```
-Many variables look messy. For the purpose of this analysis we only need the hazard class categories and some id of the substances. Dropping anything else and renaming the vars:
+
+Several variables look messy. For the purpose of this analysis we only need the hazard class categories, hazard codes and some id of the substances. Dropping anything else and renaming the vars:
 
 ```{r dropping uneccessary vars}
 clp_table <- clp_table %>%
@@ -48,7 +53,8 @@ clp_table <- clp_table %>%
 ```
 
 
-As expected, multiple hazard categories are contained in 1 excel cell. This needs to be tidied up first.
+Further, multiple hazard categories are contained in 1 excel cell. This needs to be tidied up first.
+
 ```{r tidying df}
 clp_table_tidy <- clp_table %>%
   separate_rows(clp_class, h_code, sep = "\r\n") %>%
@@ -61,34 +67,44 @@ clp_table_tidy %>% pull(clp_class) %>%
 ```{r export clp table}
 write_csv(x = clp_table_tidy, path = "data/clp_table_atp10_20190214.csv")
 ```  
-The cleaned CLP data (10th ATP) is exported to "data/clp_table_atp10_20190214.csv".
+The cleaned CLP data (10th ATP) is exported to "data/clp_table_atp10_20190214.csv" for later re-use.
+
+Selecting all observations, where the hazard class category contains acute tox and ends with '*'.
 
 ```{r extract minimum categorization}
 clp_minimum <- clp_table_tidy %>%
   filter(str_detect(clp_class, "Acute.*\\*$")) # select all observations where the hazard class category contains acute tox and  ends with '*'
+
+clp_minimum %>% 
+  nrow
+
+clp_minimum %>% 
+  pull(substance) %>% 
+  unique %>% 
+  length
 ```
-2845 substances
+2511 minimum classifications distributed over 1576 substances.
 
 ## For how many of these substances does available data not support the classification?
 
 ### Sources of experimental data
 
 * ECHA dissemination database: For the substances which are registered,cc this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scraping the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?) 
-* eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but apparently that's only the 2017 database dump [(details here)](https://echa.europa.eu/-/data-on-15-000-chemicals-now-available-to-use), which would mean more recent data can't be found. **ToDo later: check if data from a post-2017 registration is included in eChemPortal**  
+* eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but apparently that's only the 2017 database dump [(details here)](https://echa.europa.eu/-/data-on-15-000-chemicals-now-available-to-use), which would mean more recent data can't be found. I checked some registrations from 2018 manually and it seems the data are included until April or May 2018.  
 * OECD Toolbox: Contains the data from the 2017 REACH database dump. With considerable amount of details (e.g. test item information in natural language. **Need to check this**.  
 * LRI Ambit2: [link](http://cefic-lri.org/toolbox/ambit2/). Also contains the data from the 2017 REACH db. Has an API? and is developed by Ideaconsult (good sign for data accessibility). **Need to check this**.  
 * IUCLID API with db dump: IUCLID6 provides a REST API. However it is very slow and inconvenient: information is coded, codes are available in the iuclid-data dcumentation, but not readily in machine-readable format. Also study records not directly accessible/searchable, but only via the study record UUIDs which in turn have to be requested first with the dossier UUID etc... not a viable solution for quickly getting the acute tox data. *(further info/experience on IUCLID api wanted)*  
-* EPA chemistry dashboard: Has some acute tox data without much details and without references. Exports apparently only the presence of data, not the values itself?  
+* EPA chemistry dashboard: Has some acute tox data without much details and without references. Exports apparently only the presence of data, not the values itself? Also, some grave errors where apparent when looking at some examplary tox data, looked like they made some parsing mistake.  
 * HSDB via PubChem or directly  
 * NIOSH-RTECS via PubChem or directly. Direct access to RTECS probably difficult
 * tbc: there must be more
 
 ### Conclusion where to get data
-eChemportal or OECD Toolbox seems to be the best solution for now.
+eChemPortal or OECD Toolbox seems to be the best solution for now.
 
 ## Use data from eChemPortal to get acute toxicity effect levels
 
-### Usage of the eChemPortal propertysearch
+### Usage of the eChemPortal property search
 
 eChemPortals property search [link](https://www.echemportal.org/echemportal/propertysearch/page.action?pageID=10) allows to search the REACH dissemination database (from 2017, as explained above). To get data one has to build query blocks (which have a different structure for the different endpoints) which specify the requested variables. For acute oral toxicity, the query offers the variables
 
@@ -106,22 +122,24 @@ eChemPortals property search [link](https://www.echemportal.org/echemportal/prop
 * Interpretation of results (categorization according to GHS criteria, very useful in the current context)
 
 There are two issues regarding the data export function
-1. The fields are AND connected and fields with missing values lead to exclusion of the whole entry form the exported results. If a variable is left blank in the query, it is not included in the result.  
+1. The fields are AND connected and fields with missing values lead to exclusion of the whole entry form the exported results (**do I have an example for a missing value? Might not be possible in this case**) . If a variable is left blank in the query, it is not included in the result.  
 2. Exports are limited to 10000 observations (i.e. study results).
 
 Both problems can be circumvented by creating various queries and joining the data by other means. The second is quite easily managable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. The first "just" needs an additional "layer" of distinct queries for every varibale that should be exported.
-I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity: 
+I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity:  
+
 * type of information: needs to be experimental (i.e. no QSAR and read-accross studies)  
-* reliability (only RL1 & RL2)
-* Reference, year: left out if query results in less than 10000 results. else: 1990 is a good value to split the requests
-* Effect level dose descriptors: all
-* Effect level values: overlapping 0 - 9999 for each units. For each type of exposure, there is one corresponding unit (oral: mg/kg bw, dermal: mL/kg, inhalative: mg/m2)
+* reliability (only RL1 & RL2)  
+* Reference, year: left out if query results in less than 10000 results. else: 1990 is a good value to split the requests  
+* Effect level dose descriptors: all  
+* Effect level values: overlapping 0 - 9999 for each units. For each type of exposure, there is one corresponding unit (oral: mg/kg bw, dermal: mL/kg, inhalative: mg/m2)  
 
 
 ### Processing the exported results from eChemPortal
 
-#### for now only oral, tbc for inhal and dermal  
-Each query was exported as one csv file. Create one tibble of all csv files and create better variable name.
+For now, I'll focus on oral studies only, although the minimum classification probably has the least implications for this route. I'll deal with inhalation and dermal later, maybe with different methodology.  
+
+Each query result from eChemPortal was exported as one csv file. Create one tibble of all csv files and create better variable name.
 
 ```{r echemportal loading data}
 files <- list.files(path ="data/echemportal/", pattern = "oral.*csv$", full.names = T)
@@ -146,7 +164,7 @@ studies_oral_clean <- studies_oral %>%
 
 ```
 
-Extract the effect concentrations, their quantifier, and the unit  
+Extract the effect concentrations, their quantifier, and the unit.  
 
 ```{r extract dose quantifier, dose and unit}
 studies_oral_clean <- studies_oral_clean %>% 
@@ -156,7 +174,7 @@ studies_oral_clean <- studies_oral_clean %>%
     unit = str_extract(effect_level, "(?<=\\d\\s)\\D+$")
   )
 ```
-Keep only those with a suitable dose descriptor
+Keep only those with a suitable dose descriptor.
 
 ```{r}
 studies_oral_clean <- studies_oral_clean %>% 
@@ -171,7 +189,8 @@ studies_oral_clean %>%
 Those with EC number can be converted to CAS numbers or handled via EC number in case they have no CAS-RN. However, there are over 2000 unknowns. What are these?
 ```{r look at unknowns and EC}
 studies_oral_clean %>% 
-  filter(str_detect(number_type, "Unknown")) %>% 
+  filter(str_detect(number_type, "Unknown"))  %>% 
+  select(name, substance_number) %>% 
   head(20)
 ```
 Those with a name seem to be reaction masses. Those without a name seem to be primarily UVCBs and multi-constituent substances. Both are probably not too important for this analysis. However, they should all have an EC Number and it is unclear to me, why eChemPortal does not transport the substance number data.
@@ -650,20 +669,50 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-Wanted to take a closer look at Ethylacrylate for the high number of reliable studies available. 10 experimental results with RL2 exported from eChemportal. I didn't compare all results to the dossier, but it looks like all values are correctly exported. However some of the studies are quite old and it some have very little study details reported and sometimes low animal numbers... probably not all of the 10 studies should be considered equal in reliability.
+I wanted to take a closer look at Ethylacrylate because of the high number of reliable studies available. 10 experimental results with RL2 exported from eChemportal. I didn't compare all results to the dossier, but it looks like all values are correctly exported. However some of the studies are quite old and it some have very little study details reported and sometimes low animal numbers... probably not all of the 10 studies should be considered equal in reliability.
 Regarding the classification it seems like those lower values are from exactly those studies which seem to have a lower reliability, so the current CLH with cat. 4 is likely appropriate even though 2 studies indicate 3. But this might need a closer look.
 
 # Conclusion
 
-ToDo
 ## Suitability of eChemportal as a data source
 
-* tedious export
-* no obvious mistakes
-* recent data not inlcuded?
+* data export from eChemportal is quite labour intensive for larger/untargeted datasets. There is no API available and the amount of returned results is limited, leading to the necessity to create several data queries. Every variable that needs to be exported has to be queried specificially with a target value. This means that for any categorical variable several query blocks have to be constructed, one for each category of interest. Overall, retrieving the data from eChemPortal is possible, but there are hurdles. 
+* I did not encounter any mistakes in the data. This is expected, as eChemPortal uses structured IUCLID data from ECHA.
+    * However, it seems EC Numbers are missing sometimes. No idea why.
+* It seems recent data is not included in eChemPortal. It seems it contains more recent data then the 2017 IUCLID database dump, but registrations after April or May 2018 seem to be missing. For assessing the appropriateness of the minimum classification this is, at most, only a minor drawback.
 
+## Using experimental data to flag inappropriate minimum classifications
 
-```{r sessioninfo}
-sessioninfo()
+* The core idea of this analysis was to use experimental data from registration dossiers, to identify substances where the minimum classification does not fit the actual data available. For the data on oral toxicity this worked reasonably well, but there are exeptions.
+* However, there seems to be quite a number of false positives when looking closer at the data: substances are flagged as having an inappropriate CLH classifiation even though it actually fits the data when taking a proper look. The criteria I choose in this analysis (i.e. always selecting the lowest value within on endpoint study record) aim for a conservative result, prefering some false positives over not catching some real positives. Further improving the accuracy is limited by the data structure in the disseminated registration data and would probably involve natural language processing of the freetext fields.
+
+## Validation of the hits by comparison with other sources  
+
+* I manually checked some of the hits. To avoid manual checking, a comparison with the self classification of the registrants is probably very helpful. Actually N. Neuwirth & J. Püringer from the austrian AUVA used this method to identify inappropriate minimum classifications to begin with [@neuwirth2016clp]. Registrants are obliged to report a "correct" self classification if they have data that does not agree with the minimum classification.  I will probably follow up on this later on and compare the two methods or validate the hits.
+
+## List of results
+The following list contains all the substances that were flagged as having an inappropriate (minimum) classification, without correcting for the detected false positives.
+
+```{r conclusion list of results}
+data_oral_extended %>% 
+  filter(concern >= 1) %>%
+  select(substance, cas, numeric_clp_class, single_category) %>%   
+  group_by(substance, cas) %>% 
+  summarize(
+    category_minimum = unique(numeric_clp_class),
+    category_experimental = floor(unique(single_category))
+    ) %>% 
+  arrange(category_experimental, substance) %>% 
+  kable
+
 ```
 
+
+
+
+# Sessioninfo 
+
+```{r sessioninfo}
+sessionInfo()
+```
+# References
