@@ -91,8 +91,8 @@ clp_minimum %>%
 
 * ECHA dissemination database: For the substances which are registered,cc this would certainly be the best source. Unfortunately, ECHA provides no API (subject to change) and it is a bit unclear whether scraping the webpage is allowed. (ECHA prohibits automated scraping of substantial amounts of data...but what is substantial?) 
 * eChemportal: No API, but a batch search that should suffice for this purpose. Contains REACH data, but apparently that's only the 2017 database dump [(details here)](https://echa.europa.eu/-/data-on-15-000-chemicals-now-available-to-use), which would mean more recent data can't be found. I checked some registrations from 2018 manually and it seems the data are included until April or May 2018.  
-* OECD Toolbox: Contains the data from the 2017 REACH database dump. With considerable amount of details (e.g. test item information in natural language. **Need to check this**.  
-* LRI Ambit2: [link](http://cefic-lri.org/toolbox/ambit2/). Also contains the data from the 2017 REACH db. Has an API? and is developed by Ideaconsult (good sign for data accessibility). **Need to check this**.  
+* OECD Toolbox: Contains the data from the 2017 REACH database dump. With considerable amount of details (e.g. test item information in natural language. **Need to check this later**.  
+* LRI Ambit2: [link](http://cefic-lri.org/toolbox/ambit2/). Also contains the data from the 2017 REACH db. Has an API? and is developed by Ideaconsult (good sign for data accessibility). **Need to check this later**.  
 * IUCLID API with db dump: IUCLID6 provides a REST API. However it is very slow and inconvenient: information is coded, codes are available in the iuclid-data dcumentation, but not readily in machine-readable format. Also study records not directly accessible/searchable, but only via the study record UUIDs which in turn have to be requested first with the dossier UUID etc... not a viable solution for quickly getting the acute tox data. *(further info/experience on IUCLID api wanted)*  
 * EPA chemistry dashboard: Has some acute tox data without much details and without references. Exports apparently only the presence of data, not the values itself? Also, some grave errors where apparent when looking at some examplary tox data, looked like they made some parsing mistake.  
 * HSDB via PubChem or directly  
@@ -126,13 +126,13 @@ There are two issues regarding the data export function
 2. Exports are limited to 10000 observations (i.e. study results).
 
 Both problems can be circumvented by creating various queries and joining the data by other means. The second is quite easily managable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. The first "just" needs an additional "layer" of distinct queries for every varibale that should be exported.
-I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity:  
+I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity:   
 
 * type of information: needs to be experimental (i.e. no QSAR and read-accross studies)  
 * reliability (only RL1 & RL2)  
 * Reference, year: left out if query results in less than 10000 results. else: 1990 is a good value to split the requests  
 * Effect level dose descriptors: all  
-* Effect level values: overlapping 0 - 9999 for each units. For each type of exposure, there is one corresponding unit (oral: mg/kg bw, dermal: mL/kg, inhalative: mg/m2)  
+* Effect level values: overlapping 0 - 9999 for each units. For each type of exposure, there is one corresponding unit (oral: mg/kg bw, dermal: mL/kg, inhalative: mg/m²)  
 
 
 ### Processing the exported results from eChemPortal
@@ -141,7 +141,7 @@ For now, I'll focus on oral studies only, although the minimum classification pr
 
 Each query result from eChemPortal was exported as one csv file. Create one tibble of all csv files and create better variable name.
 
-```{r echemportal loading data}
+```{r echemportal loading data, message = FALSE}
 files <- list.files(path ="data/echemportal/", pattern = "oral.*csv$", full.names = T)
 
 studies_oral <- map(files, read_csv2) %>% bind_rows
@@ -166,7 +166,7 @@ studies_oral_clean <- studies_oral %>%
 
 Extract the effect concentrations, their quantifier, and the unit.  
 
-```{r extract dose quantifier, dose and unit}
+```{r extract dose quantifier dose and unit}
 studies_oral_clean <- studies_oral_clean %>% 
   mutate(
     effect_level_quantifier = str_extract(effect_level, "^\\D+(?=\\s)"),
@@ -176,7 +176,7 @@ studies_oral_clean <- studies_oral_clean %>%
 ```
 Keep only those with a suitable dose descriptor.
 
-```{r}
+```{r keep LD50}
 studies_oral_clean <- studies_oral_clean %>% 
   filter(str_detect(descriptor, "^LD50$|^approximate LD50$"))
 
@@ -195,7 +195,8 @@ studies_oral_clean %>%
 ```
 Those with a name seem to be reaction masses. Those without a name seem to be primarily UVCBs and multi-constituent substances. Both are probably not too important for this analysis. However, they should all have an EC Number and it is unclear to me, why eChemPortal does not transport the substance number data.
 
-Still, trying to clean uo a bit...
+Still, trying to clean up a bit...
+
 
 ## Convert EC to CAS
 ### Any substances in the CLP list that have EC, but no CAS?
@@ -210,7 +211,7 @@ yes, several. This should be fixed.
 
 ### Convert EC to CAS
 
-The webchem package [https://github.com/ropensci/webchem]((link to github)) is very nice for various conversions of chemical identifiers via CTS and PubChem. However EC-> CAS is not directly via PubChem or CTS as both don't support EC as input.
+The webchem package [link to github](https://github.com/ropensci/webchem) is very nice for various conversions of chemical identifiers via CTS and PubChem. However EC -> CAS is not directly supported via PubChem or CTS as both don't support EC as input.
 A possibility is to use the EC inventory and do a lookup. However the EC inventory export is limited to 20000 entires.
 For this purpose the list of registered substances should be sufficient. It has currently little over 20000 entries, but if only full registrations are exported, the list is well within ECHAs download limit).
 
@@ -225,7 +226,7 @@ echa_substances <- echa_substances %>%
             cas_echa = `Cas Number`,
             ec_echa = `EC / List Number`) %>% 
   distinct(ec_echa, .keep_all = TRUE) #needed because echa_substances contains duplicates from        
-                                      #joint/individual submssions
+                                      #joint/individual submissions
 
 
 # which are identified by EC Number
@@ -267,8 +268,7 @@ There shouldn't be any entries witout EC number actually because we're using ECH
 studies_oral_name <- 
   studies_oral_name %>% 
   mutate(name = ifelse(name == "-", NA, name)) %>%
-  mutate(name = ifelse(str_detect(name, "unknown"), NA, name)) %>% 
-  mutate(name = ifelse(str_detect(name, "unnamed"), NA, name)) %>% 
+  mutate(name = ifelse(str_detect(name, "unknown|unnamed"), NA, name)) %>% 
   filter(!(is.na(cas_echa) & is.na(name)))
 ```
 
@@ -276,24 +276,31 @@ studies_oral_name <-
 ## Combine the cleaned lists
 I.e. the list with substances that can be identified by CAS + the list with CAS identifiers generated by EC numbers + the list with substances identified by their name.
 
-### Step 1: For those with identification by EC No & succesful CAS No lookup: replace CAS by EC
+### Step 1: For those with identification by EC-Number & succesful CAS-Number lookup: replace EC by CAS
+
+First replace EC by CAS in studies_oral_ec , then bind this to the part of studies_oral_clean that is not identified by EC-Number
 
 ```{r step 1 joining}
-studies_oral_clean <- studies_oral_ec %>% 
+studies_oral_ec <- studies_oral_ec %>% 
   mutate(substance_number = cas_echa, 
-         number_type = "CAS Number") %>% 
-  bind_rows(studies_oral_clean %>%
+         number_type = "CAS Number")
+
+studies_oral_clean <- bind_rows(studies_oral_ec, studies_oral_clean %>%
               filter(number_type != "EC Number")
   )
 ```
 
-### Step 2: For those with Ident. by EC or by CAS after succesful name lookup: replace CAS by EC
+### Step 2: For those with Ident. by EC or by CAS after succesful name lookup: replace EC by CAS
+
+First set substance number to CAS in studies_oral_name , then bind this to the part of studies_oral_clean that has no unknown number type.
 ```{r step 2 joining}
-studies_oral_clean <- studies_oral_name %>%
+studies_oral_name <- studies_oral_name %>%
   filter(!is.na(cas_echa)) %>% 
   mutate(substance_number = cas_echa,
-         number_type = "CAS Number") %>% 
-  bind_rows(studies_oral_clean %>%
+         number_type = "CAS Number")
+  
+  
+studies_oral_clean <- bind_rows(studies_oral_name, studies_oral_clean %>%
               filter(number_type != "Unknown")
   ) 
 
@@ -398,7 +405,7 @@ studies_oral_cat_derived %>%
 ```
 All classified
 
-```{r classification stats}
+```{r classification stats, dev = "png", dpi = 36}
 studies_oral_cat_derived %>% 
   group_by(category_from_exp) %>% 
   tally %>% 
@@ -442,7 +449,7 @@ data_oral_combined_cas %>%
 ```
 very few left without CAS, going to ignore these.
 
-```{r}
+```{r, dev = "png", dpi = 36}
 data_oral_combined <- data_oral_combined_cas %>% 
   filter(!is.na(cas) & cas != "-")
 
@@ -469,13 +476,14 @@ data_oral_combined <- data_oral_combined %>%
 
 ### Visualization of derived category from every study with a LD50 value
 
-```{r}
+```{r, dev = "png", dpi = 36}
 data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmoized classif.
   ggplot(aes(x = factor(clp_class), y = category_from_exp)) +
   geom_jitter()
 ```
-```{r}
+
+```{r, dev = "png", dpi = 36}
 data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
@@ -492,7 +500,7 @@ Already obvious that there is a high amount of substances which can quite reliab
 
 Identifiying these candidates for concern by a constructed variable:
 
-```{r}
+```{r, dev = "png", dpi = 36}
 data_oral_grouped <- data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
@@ -528,7 +536,7 @@ data_oral_extended <- data_oral_combined %>%
 
 Aligned dot plot for visualization, amount of studies as dot size:
 
-```{r substances_of_concern_plot, out.width = "100%"}
+```{r substances_of_concern_plot, out.width = "100%", dev = "png"}
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
