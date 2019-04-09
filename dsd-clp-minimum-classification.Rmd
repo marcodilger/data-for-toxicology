@@ -290,9 +290,9 @@ studies_oral_clean <- bind_rows(studies_oral_ec, studies_oral_clean %>%
   )
 ```
 
-### Step 2: For those with Ident. by EC or by CAS after succesful name lookup: replace EC by CAS
+### Step 2: For those with Identification by EC or by CAS after succesful name lookup: replace EC by CAS
 
-First set substance number to CAS in studies_oral_name , then bind this to the part of studies_oral_clean that has no unknown number type.
+First set substance number to CAS in studies_oral_name for all entries that have a CAS-Number, then bind this to the part of studies_oral_clean where number type is not "unknown".
 ```{r step 2 joining}
 studies_oral_name <- studies_oral_name %>%
   filter(!is.na(cas_echa)) %>% 
@@ -306,7 +306,7 @@ studies_oral_clean <- bind_rows(studies_oral_name, studies_oral_clean %>%
 
 ```
 
-### Step 3: For those with no Ident. by EC nor by CAS after name lookup: use name getting classification
+### Step 3: For those with no Identification by EC nor by CAS after name lookup: use name getting classification
 
 ```{r step 3 joining}
 studies_oral_clean <-
@@ -393,7 +393,7 @@ studies_oral_cat_derived <- studies_oral_clean %>%
                                     effect_level_dose < 5, 1, category_from_exp),
          category_from_exp = ifelse(is.na(category_from_exp) & 
                                     str_detect(effect_level_quantifier, "<") & 
-                                    effect_level_dose <= 5, 3, category_from_exp)
+                                    effect_level_dose <= 5, 1, category_from_exp)
          )
 
 # check if all are classified
@@ -606,7 +606,9 @@ Overall the classification as Category 2 seems to be very well justified based o
 data_oral_extended %>% 
   filter(concern == 1) %>% 
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
-  arrange(single_category, substance, reliability)
+  arrange(single_category, substance, reliability) %>% 
+  pull(substance) %>% 
+  unique
 ```
 Many important substances in this list. looking at some examples.
 
@@ -621,7 +623,7 @@ data_oral_extended %>%
 ```
 
 
-There is experimental data from 2 studies. Both values quite clearly indicating cat. 1 instead of 2, the current CLH category. The registation dossier confirms these values (with a "creative" way of reporting effect concentration). Looks like HCN is currently not appropriately classified in the CLP.
+There is experimental data from 2 studies. Both values quite clearly indicate cat. 1 instead of 2, the current CLH category. The registation dossier confirms these values (with a "creative" way of reporting effect concentration). Looks like HCN is currently not appropriately classified in the CLP.
 
 
 ### Acrylonitrile
@@ -687,12 +689,12 @@ Regarding the classification it seems like those lower values are from exactly t
 * data export from eChemportal is quite labour intensive for larger/untargeted datasets. There is no API available and the amount of returned results is limited, leading to the necessity to create several data queries. Every variable that needs to be exported has to be queried specificially with a target value. This means that for any categorical variable several query blocks have to be constructed, one for each category of interest. Overall, retrieving the data from eChemPortal is possible, but there are hurdles. 
 * I did not encounter any mistakes in the data. This is expected, as eChemPortal uses structured IUCLID data from ECHA.
     * However, it seems EC Numbers are missing sometimes. No idea why.
-* It seems recent data is not included in eChemPortal. It seems it contains more recent data then the 2017 IUCLID database dump, but registrations after April or May 2018 seem to be missing. For assessing the appropriateness of the minimum classification this is, at most, only a minor drawback.
+* It seems the most recent data is not included in eChemPortal. It looks like more recent data than the 2017 IUCLID database dump is found, but registrations or updates after April or May 2018 seem to be missing. For assessing the appropriateness of the minimum classification this is, at most, only a minor drawback.
 
 ## Using experimental data to flag inappropriate minimum classifications
 
-* The core idea of this analysis was to use experimental data from registration dossiers, to identify substances where the minimum classification does not fit the actual data available. For the data on oral toxicity this worked reasonably well, but there are exeptions.
-* However, there seems to be quite a number of false positives when looking closer at the data: substances are flagged as having an inappropriate CLH classifiation even though it actually fits the data when taking a proper look. The criteria I choose in this analysis (i.e. always selecting the lowest value within on endpoint study record) aim for a conservative result, prefering some false positives over not catching some real positives. Further improving the accuracy is limited by the data structure in the disseminated registration data and would probably involve natural language processing of the freetext fields.
+* The core idea of this analysis was to use experimental data from registration dossiers to identify substances where the minimum classification does not fit the actual data available. For the data on oral toxicity this worked reasonably well, but there are exeptions.
+* However, there seems to be quite a number of false positives, as is revealed when looking closer at the data: substances are flagged as having an inappropriate CLH classifiation even though it actually fits the data. The criteria I choose in this analysis (i.e. always selecting the lowest value within on endpoint study record) aim for a conservative result, prefering some false positives over not catching some real positives. Further improving the accuracy is limited by the data structure in the disseminated registration data and would probably involve natural language processing of the free text fields (which probably? (ToDo: check)) are anyways not included in the eChemPortal data.
 
 ## Validation of the hits by comparison with other sources  
 
