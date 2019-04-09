@@ -405,7 +405,7 @@ studies_oral_cat_derived %>%
 ```
 All classified
 
-```{r classification stats, dev = "png", dpi = 36}
+```{r classification stats, dev = "png", dpi = 36, out.width = "60%"}
 studies_oral_cat_derived %>% 
   group_by(category_from_exp) %>% 
   tally %>% 
@@ -449,7 +449,7 @@ data_oral_combined_cas %>%
 ```
 very few left without CAS, going to ignore these.
 
-```{r, dev = "png", dpi = 36}
+```{r, dev = "png", out.width = "60%", fig.align = center}
 data_oral_combined <- data_oral_combined_cas %>% 
   filter(!is.na(cas) & cas != "-")
 
@@ -476,14 +476,14 @@ data_oral_combined <- data_oral_combined %>%
 
 ### Visualization of derived category from every study with a LD50 value
 
-```{r, dev = "png", dpi = 36}
+```{r, dev = "png", fig.align = center, out.width = "60%"}
 data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmoized classif.
   ggplot(aes(x = factor(clp_class), y = category_from_exp)) +
   geom_jitter()
 ```
 
-```{r, dev = "png", dpi = 36}
+```{r, dev = "png", fig.align = center, out.width = "60%"}
 data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
@@ -500,7 +500,7 @@ Already obvious that there is a high amount of substances which can quite reliab
 
 Identifiying these candidates for concern by a constructed variable:
 
-```{r, dev = "png", dpi = 36}
+```{r, dev = "png", fig.align = center, out.width = "60%"}
 data_oral_grouped <- data_oral_combined %>% 
   filter(!is.na(clp_class)) %>% #remove all without harmonized classif.
   filter(!is.na(category_from_exp) | category_from_exp != "not classified") %>% #remove all studies with no classification from experimental studies
@@ -536,7 +536,7 @@ data_oral_extended <- data_oral_combined %>%
 
 Aligned dot plot for visualization, amount of studies as dot size:
 
-```{r substances_of_concern_plot, out.width = "100%", dev = "png"}
+```{r substances_of_concern_plot, out.width = "100%", dev = "png", fig.align = center}
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
