@@ -1,7 +1,7 @@
 ---
-title: "CLP Minimum classifications"
+title: "Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification (oral route)"
 author: "Marco Dilger"
-date: "February 14, 2019"
+date: "April 10, 2019"
 output: html_document
 bibliography: bibliography/data-supported-tox.bib
 ---
@@ -14,10 +14,12 @@ library(plotly)
 library(knitr)
 ```
 
-# Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification
+# Identification of (mis)classified substances as a consequence of the CLP Minimum classification: application to oral toxicity using data frm eChemPortal.
 
 ## Background
 Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (*this needs a figure for explanation*)). This ~~may~~ did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
+
+![Classification boundaries for DSD and CLP and the minimum classification](img/dsd_to_clp_min_classification.svg)
 
 ## Get data with CLP classifications
 ECHA provides (unofficial) tabular data of harmonized classifications [here](https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp) in form of an excel file. The substances falling under the minimum classification are marked with an '*'.
@@ -100,7 +102,7 @@ clp_minimum %>%
 * tbc: there must be more
 
 ### Conclusion where to get data
-eChemPortal or OECD Toolbox seems to be the best solution for now.
+eChemPortal or OECD Toolbox seems to be the best solution for now. I'm going to use the eChemPortal for the oral route, and probably another data source later for dermal or inhalative toxicity.
 
 ## Use data from eChemPortal to get acute toxicity effect levels
 
@@ -396,14 +398,15 @@ studies_oral_cat_derived <- studies_oral_clean %>%
                                     effect_level_dose <= 5, 1, category_from_exp)
          )
 
-# check if all are classified
+```
 
+Make sure that all are classified
+```{r all classified}
 studies_oral_cat_derived %>% 
   filter(is.na(category_from_exp)) %>% 
   nrow
-
 ```
-All classified
+
 
 ```{r classification stats, dev = "png", dpi = 36, out.width = "60%"}
 studies_oral_cat_derived %>% 
@@ -689,7 +692,7 @@ Regarding the classification it seems like those lower values are from exactly t
 * data export from eChemportal is quite labour intensive for larger/untargeted datasets. There is no API available and the amount of returned results is limited, leading to the necessity to create several data queries. Every variable that needs to be exported has to be queried specificially with a target value. This means that for any categorical variable several query blocks have to be constructed, one for each category of interest. Overall, retrieving the data from eChemPortal is possible, but there are hurdles. 
 * I did not encounter any mistakes in the data. This is expected, as eChemPortal uses structured IUCLID data from ECHA.
     * However, it seems EC Numbers are missing sometimes. No idea why.
-* It seems the most recent data is not included in eChemPortal. It looks like more recent data than the 2017 IUCLID database dump is found, but registrations or updates after April or May 2018 seem to be missing. For assessing the appropriateness of the minimum classification this is, at most, only a minor drawback.
+* The data in eChemPortal is not up to date with the ECHA database. It looks like more recent data than the 2017 IUCLID database dump is found, but registrations or updates after April or May 2018 seem to be missing. For assessing the appropriateness of the minimum classification this is, at most, only a minor drawback.
 
 ## Using experimental data to flag inappropriate minimum classifications
 
@@ -723,6 +726,6 @@ data_oral_extended %>%
 # Sessioninfo 
 
 ```{r sessioninfo}
-sessionInfo()
+devtools::session_info()
 ```
 # References
