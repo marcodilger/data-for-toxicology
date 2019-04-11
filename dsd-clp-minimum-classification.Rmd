@@ -2,7 +2,11 @@
 title: "Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification (oral route)"
 author: "Marco Dilger"
 date: "April 10, 2019"
-output: html_document
+output:
+  html_document:
+    number_sections: true
+    fig_caption: true
+    theme: paper
 bibliography: bibliography/data-supported-tox.bib
 ---
 
@@ -17,9 +21,9 @@ library(knitr)
 # Identification of (mis)classified substances as a consequence of the CLP Minimum classification: application to oral toxicity using data frm eChemPortal.
 
 ## Background
-Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (*this needs a figure for explanation*)). This ~~may~~ did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
+Replacement of the dangerous substance directive (DSD) by the CLP regulation prompted major re-classification work to adhere to the new criteria. The old and new classification criteria fur acute toxicity don't match 100%. In case of ambiguity, the minimum classification concept prompts classification into the CLP category of lower toxicity (see image below for clarification). This ~~may~~ did lead to classifications which are not supported by the experimental data, which can be shown e.g. by the REACH registration data.
 
-![Classification boundaries for DSD and CLP and the minimum classification](img/dsd_to_clp_min_classification.svg)
+![Classification boundaries for DSD and CLP and the minimum classification. In this case the criteria for oral acute toxicity. For dermal and inhalative exposure, the concentration ranges where the minimum classification procedure leads to a "wrong" classification are wider for some category boundaries](img/dsd_to_clp_min_classification.svg)
 
 ## Get data with CLP classifications
 ECHA provides (unofficial) tabular data of harmonized classifications [here](https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp) in form of an excel file. The substances falling under the minimum classification are marked with an '*'.
@@ -408,7 +412,7 @@ studies_oral_cat_derived %>%
 ```
 
 
-```{r classification stats, dev = "png", dpi = 36, out.width = "60%"}
+```{r classification stats, dev = "png", dpi = 36, out.width = "50%", fig.asp = 1, fig.align = "center"}
 studies_oral_cat_derived %>% 
   group_by(category_from_exp) %>% 
   tally %>% 
@@ -452,7 +456,7 @@ data_oral_combined_cas %>%
 ```
 very few left without CAS, going to ignore these.
 
-```{r, dev = "png", out.width = "60%", fig.align = "center"}
+```{r, dev = "png", out.width = "40%", fig.asp = 1.2, fig.align = "center"}
 data_oral_combined <- data_oral_combined_cas %>% 
   filter(!is.na(cas) & cas != "-")
 
@@ -539,14 +543,20 @@ data_oral_extended <- data_oral_combined %>%
 
 Aligned dot plot for visualization, amount of studies as dot size:
 
-```{r substances_of_concern_plot, out.width = "100%", dev = "png", fig.align = "center"}
+```{r substances_of_concern_plot, out.width = "100%", fig.asp = 0.5, dev = "png", fig.align = "center"}
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
-  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, color = as.factor(numeric_clp_class))) + # fct_reorder to order factor from lowest single_category to highest
-  geom_count() +
+  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp)) + 
+ # geom_count() +
+  geom_count(aes(size = ..n..,
+                 colour = as.factor(numeric_clp_class))) + # fct_reorder to order factor from lowest single_category to highest
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_x_discrete(label = function(x) substring(x, 1, 20))
+  scale_x_discrete(label = function(x) substring(x, 1, 20)) +
+  theme(legend.text=element_text(size=rel(0.8))) + # smaller legend font, to give more space to the plot 
+  labs(color = "original\nclassification",
+       size = "countsize" # <- this does not work. "size" probably not correct for adressing the legend TODO
+       )
 
 plot_substances_of_concern
 
