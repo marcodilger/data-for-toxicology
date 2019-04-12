@@ -6,7 +6,7 @@ output:
   html_document:
     number_sections: true
     fig_caption: true
-    theme: paper
+    theme: cerulean
 bibliography: bibliography/data-supported-tox.bib
 ---
 
@@ -127,12 +127,14 @@ eChemPortals property search [link](https://www.echemportal.org/echemportal/prop
 * Effect levels, Remarks on result (ignored)
 * Interpretation of results (categorization according to GHS criteria, very useful in the current context)
 
-There are two issues regarding the data export function
-1. The fields are AND connected and fields with missing values lead to exclusion of the whole entry form the exported results (**do I have an example for a missing value? Might not be possible in this case**) . If a variable is left blank in the query, it is not included in the result.  
+There are two issues regarding the data export function  
+
+1. The query fields are AND connected and fields with missing values lead to exclusion of the whole entry form the exported results. If a variable is left blank in the query, it is not included in the result. For the most critical variables, this shouldn't be an issue, as an entry is required. But there is some information that can't be exported from eChemPortal due to this behaviour. (To reproduce the issue: query for all studies on acute oral toxicity older than 1950: 576 hits. If additionally the test guideline qualifier is queried, with all possible values selected, only 340 hits are returned)
+
+
 2. Exports are limited to 10000 observations (i.e. study results).
 
-Both problems can be circumvented by creating various queries and joining the data by other means. The second is quite easily managable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. The first "just" needs an additional "layer" of distinct queries for every varibale that should be exported.
-I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity:   
+The second problem can be circumvented by creating various queries and joining the data by other means. For example, in this case it is quite easily manageable by splitting a queries in two year ranges. As every study report should have a reference year given, this should not lead to exclusion of studies. For the first I don't know a good solution, but the impact is probably limited if the query is restricted to the most important variables. For this reason I'll be going for the minimal data needed for the purpose of getting experimental data to judge the classifications for acute toxicity:   
 
 * type of information: needs to be experimental (i.e. no QSAR and read-accross studies)  
 * reliability (only RL1 & RL2)  
@@ -547,16 +549,15 @@ Aligned dot plot for visualization, amount of studies as dot size:
 plot_substances_of_concern <- data_oral_extended %>% 
   filter(concern >= 1) %>% 
   arrange(single_category) %>% 
-  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp)) + 
- # geom_count() +
+  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp)) + # fct_reorder to order factor from lowest single_category to highest
   geom_count(aes(size = ..n..,
-                 colour = as.factor(numeric_clp_class))) + # fct_reorder to order factor from lowest single_category to highest
+                 colour = as.factor(numeric_clp_class))) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_x_discrete(label = function(x) substring(x, 1, 20)) +
   theme(legend.text=element_text(size=rel(0.8))) + # smaller legend font, to give more space to the plot 
-  labs(color = "original\nclassification",
-       size = "countsize" # <- this does not work. "size" probably not correct for adressing the legend TODO
-       )
+  labs(colour = "original\nclassification",
+       size = "amount\nof studies") +
+  theme(legend.position = "bottom", legend.box.just = "center")
 
 plot_substances_of_concern
 
@@ -577,16 +578,25 @@ plot_substances_of_concern_plotly <- data_oral_extended %>%
                               , effect_level_dose, unit, "- reliability:", reliability, sep = " "),
                         sep = "", collapse = "\n")
   ) %>% 
-  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, color = as.factor(numeric_clp_class), label = plot_label))  + # fct_reorder to order factor from lowest single_category to highest
+  ggplot(aes(x = fct_reorder(substance, single_category, min), y = category_from_exp, colour = as.factor(numeric_clp_class), label = plot_label))  + # fct_reorder to order factor from lowest single_category to highest
   geom_count() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_x_discrete(label = function(x) substring(x, 1, 20))
+  scale_x_discrete(label = function(x) substring(x, 1, 20)) +
+  labs(colour = "original\nclassification",
+       size = "amount\nof studies") +
+  theme(legend.position = "bottom") +
+  ylab("Category derived\nfrom experimental data") + 
+  xlab("Substance")
+  
 
-#ggplotly(plot_substances_of_concern_plotly,
-#         tooltip = c("label")) # instead of "all"
+ggplotly(plot_substances_of_concern_plotly,
+         tooltip = c("label")) %>% # instead of "all"
+  layout(legend = list(orientation = "h",
+                       y = -.8))  # ToDo: does not show both legends,  problem between ggplot output -> plotly
+
 
 ``` 
-### Comparing the substances with concern > 1 with registration data
+## Comparing the substances with concern > 1 with registration data
 
 ```{r}
 data_oral_extended %>% 
@@ -600,10 +610,10 @@ data_oral_extended %>%
   pull(unit) %>% 
   table
 ```
-Nope. Closer look at epoxybutane:
+Nope. Closer look at epoxybutane and peracetic acid:
 
 
-#### 1,2-epoxybutane  
+### 1,2-epoxybutane  
 Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with the data?). Also the UUID seem to have changed. The reason for the big difference in the effect level concentration is a mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
 Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
 
@@ -614,7 +624,7 @@ Huge number of studies indicating category 2 & 3, several RL1. UUIDs also don't 
 Overall the classification as Category 2 seems to be very well justified based on the experimental data.
 
 
-### Comparing some of the substances with concern = 1 with registration data
+## Comparing some of the substances with concern = 1 with registration data
 ```{r getting links to dossiers concern 1}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
