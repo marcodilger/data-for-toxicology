@@ -1,7 +1,7 @@
 ---
 title: "Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification (oral route)"
 author: "Marco Dilger"
-date: "April 10, 2019"
+date: "April 12, 2019"
 output:
   html_document:
     number_sections: true
@@ -557,7 +557,9 @@ plot_substances_of_concern <- data_oral_extended %>%
   theme(legend.text=element_text(size=rel(0.8))) + # smaller legend font, to give more space to the plot 
   labs(colour = "original\nclassification",
        size = "amount\nof studies") +
-  theme(legend.position = "bottom", legend.box.just = "center")
+  theme(legend.position = "bottom", legend.box.just = "center") +
+  ylab("Category derived\nfrom experimental data") + 
+  xlab("Substance")
 
 plot_substances_of_concern
 
@@ -596,6 +598,7 @@ ggplotly(plot_substances_of_concern_plotly,
 
 
 ``` 
+  
 ## Comparing the substances with concern > 1 with registration data
 
 ```{r}
@@ -604,7 +607,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-Only 2 substances with a difference > 2 between current CLH and classification derived from experimental data. For epoxybutane, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels.
+Only 2 substances with a numerical difference > 2 between current CLH and classification derived from experimental data. For epoxybutane, only 2 experimental values and the difference in the effective dose is huge! Suspicion: there are some entries where the unit is not the same, thus severe differences in effect levels.
 ```{r}
 data_oral_extended %>% 
   pull(unit) %>% 
@@ -614,8 +617,9 @@ Nope. Closer look at epoxybutane and peracetic acid:
 
 
 ### 1,2-epoxybutane  
-Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with the data?). Also the UUID seem to have changed. The reason for the big difference in the effect level concentration is a mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
-Great start...first substance and already a mistake in the dossier and already 2/4 available studies covered by the experimental data set.
+Interesting case, eChemportal exported 2 studies with same reliability but tremendous difference in the effect level concentration relevant for classification. Looking at the dossier [https://echa.europa.eu/registration-dossier/-/registered-dossier/13837//?documentUUID=7f00ec16-d9ee-4ab2-b8a9-35fd844a73e5](link) shows there are actually 4 studies with RL 1 or 2, although only 2 can be found in eChemPortal (could be because cChemPortal is lagging a bit behind with getting data from ECHA and these studies were added to the ECHA database since the last eChemPortal update). Also the UUIDs seem to have changed.  
+The reason for the big difference in the effect level concentration is actually mistake in the dossier: LD50 is reported as 1 mg/kg bw, but is 1 g/kg bw (obvious when looking at the freetext field "mortality").
+Great start...first substance and already a mistake in the registration dossier and only 2/4 available studies covered by the experimental data set.
 
 
 ### peracetic acid
@@ -624,7 +628,7 @@ Huge number of studies indicating category 2 & 3, several RL1. UUIDs also don't 
 Overall the classification as Category 2 seems to be very well justified based on the experimental data.
 
 
-## Comparing some of the substances with concern = 1 with registration data
+## Comparing some of the substances with concern = 1 to the registration data
 ```{r getting links to dossiers concern 1}
 data_oral_extended %>% 
   filter(concern == 1) %>% 
@@ -646,7 +650,7 @@ data_oral_extended %>%
 ```
 
 
-There is experimental data from 2 studies. Both values quite clearly indicate cat. 1 instead of 2, the current CLH category. The registation dossier confirms these values (with a "creative" way of reporting effect concentration). Looks like HCN is currently not appropriately classified in the CLP.
+There is experimental data from 2 studies. Both values quite clearly indicate cat. 1 instead of 2, the current CLH category. The registation data confirms these values (with a "creative" way of reporting effect concentration). Looks like HCN is currently not appropriately classified in the CLP.
 
 
 ### Acrylonitrile
@@ -657,7 +661,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-2 experimental values exported from eChemportal. Same reliability, first study corresponds to cat. 3, second study to cat. 2. These values fit the reported data in the dossier. The second value (indicating category 2 instead of 3), in this case corresponds to the lowest value of actually several studies given for this study in the registration dossier (as results from several studies are reported within in the same endpoint study record - certainly not ideal). Further, according to the result description, these results are from studies with different quality and the most reliable value is actually not the 25 mg/kg bw, but a higher one. Thus, category 3 seems justified.
+2 experimental values exported from eChemportal. Same reliability, first study corresponds to cat. 3, second study to cat. 2. These values fit the reported data in the ECHA database. The second value (indicating category 2 instead of 3), in this case corresponds to the lowest value of actually several studies given for this study in the ECHA data (as results from several studies are reported within in the same endpoint study record - certainly not ideal). Further, according to the result description, these results are from studies with different quality and the most reliable value is actually not the 25 mg/kg bw, but a higher one. Thus, category 3 seems justified.
 
 ### chromium (VI) trioxide
 
@@ -668,7 +672,7 @@ data_oral_extended %>%
   select(substance, ec, effect_level_quantifier, effect_level_dose, unit, reliability, numeric_clp_class, category_from_exp, single_category, link) %>% 
   arrange(single_category, substance, reliability)
 ```
-1 RL 1 study indicating cat 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: cat. 3. Reporting in the dossier is again not ideal for automated processing: for one study record, the reported effect levels correspond to several chromates, and without processing the natural language it is not possible to determine which is the one for chromium (VI) oxide. Overall, this seems like a false alarm and cat. 3 is justified.
+1 RL 1 study indicating category 3. 3 RL2 studies with values indicating cat 2/3. Current CLH: category 3. Reporting in the dossier is again not ideal for automated processing: for one study record, the reported effect levels correspond to several chromates, and without processing the natural language it is not possible to determine which is the one for chromium (VI) oxide. Overall, this seems like a false alarm and cat. 3 is justified.
 
 ### Nickel sulfate
 
@@ -707,7 +711,7 @@ Regarding the classification it seems like those lower values are from exactly t
 
 # Conclusion
 
-## Suitability of eChemportal as a data source
+## Suitability of eChemPortal as a data source for acute toxicity
 
 * data export from eChemportal is quite labour intensive for larger/untargeted datasets. There is no API available and the amount of returned results is limited, leading to the necessity to create several data queries. Every variable that needs to be exported has to be queried specificially with a target value. This means that for any categorical variable several query blocks have to be constructed, one for each category of interest. Overall, retrieving the data from eChemPortal is possible, but there are hurdles. 
 * I did not encounter any mistakes in the data. This is expected, as eChemPortal uses structured IUCLID data from ECHA.
