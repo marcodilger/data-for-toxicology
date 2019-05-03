@@ -1,9 +1,11 @@
 ---
 title: "Analysis of substances that are (mis)classified as less toxic as a result of the CLP Minimum classification (oral route)"
 author: "Marco Dilger"
-date: "April 12, 2019"
+date: "April 29, 2019"
 output:
   html_document:
+    self_contained: false
+    lib_dir: libs
     number_sections: true
     fig_caption: true
     theme: cerulean
